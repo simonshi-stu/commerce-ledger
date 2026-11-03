@@ -4,7 +4,9 @@
 
 参考酒店项目的“资源管理→占用资源→完成业务→报表”思路，独立编写代码，没有复制参考代码、图片、SQL 数据或报告。演示商品和库存全部为**模拟数据**。金额统一为人民币分。
 
-**已验证：50 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件。** [验证记录](docs/05-verification.md)
+**已验证：50 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件。** [验证记录](docs/05-verification.md) · [发布前独立复验](docs/12-publication-verification.md)
+
+项目仓库：[simonshi-stu/commerce-ledger](https://github.com/simonshi-stu/commerce-ledger)。
 
 ## 架构：一次请求经过什么
 
@@ -109,7 +111,7 @@ $env:COMMERCE_API_KEY = "local-learning-key-change-me"
 | scripts/demo.py | 临时数据库端到端演示 |
 | docs/ | 中文拆解、教学与证据 |
 
-当前没有部署、创建远端仓库、付费服务或修改原四项目。SQLite 的正确性演示不能表述为 MySQL/PostgreSQL 性能或生产并发能力。
+本仓库提供教学源码与合成测试；没有部署、付费服务或修改原四项目。SQLite 的正确性演示不能表述为 MySQL/PostgreSQL 性能或生产并发能力。
 
 数据库版本 1 由 app/schema.sql 创建，版本 2 在 app/migrations/002_history_guards.sql 增加历史保护触发器。已有旧库必须先停止服务并执行 python -m app.migrate --apply，命令会备份后升级；未知更高版本拒绝启动。详见第 11 章。
 
@@ -130,8 +132,8 @@ GET /integrity 在只读事务里核对库存与流水、订单总额与明细�
 
 COMMERCE_API_KEY 为必填管理凭据；可选 COMMERCE_READ_API_KEY 只能读取，写操作返回 403。两个值不能相同，没有默认有效凭据；这不是账号密码、多租户或完整 RBAC。每个响应带服务器生成的 X-Request-ID；应用故障日志不记录请求体、凭据、查询串或异常原文。
 
-新增故障测试覆盖提交前整单回滚，以及提交后响应失败时原幂等键重试不重复扣库存。公开仓库仍未创建，PostgreSQL 未实施或实测。教学与安全边界见第 09、10 章。
+新增故障测试覆盖提交前整单回滚，以及提交后响应失败时原幂等键重试不重复扣库存。源码发布目标为用户自己的 commerce-ledger 仓库，PostgreSQL 未实施或实测。教学与安全边界见第 09、10 章。
 
 ## 真实旧库升级演示（API 0.5.0 / DB v2）
 
-运行 python -m scripts.migration_demo，在临时旧库验证 v1 到 v2 升级、数据保留、备份可读、终态保护和重复执行。数据库现在拒绝改写历史明细与库存流水；正常取消追加返还流水。当前没有 PostgreSQL 实现或实测，也没有公开发布。
+运行 python -m scripts.migration_demo，在临时旧库验证 v1 到 v2 升级、数据保留、备份可读、终态保护和重复执行。数据库现在拒绝改写历史明细与库存流水；正常取消追加返还流水。当前没有 PostgreSQL 实现或实测；本次源码发布不包含运行数据库。

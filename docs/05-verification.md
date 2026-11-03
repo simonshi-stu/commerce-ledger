@@ -50,7 +50,7 @@ HTTP 验证确实启动本地 uvicorn 子进程，使用临时数据库并自动
 
 ## 剩余限制
 
-本地单商家管理原型，只有共享 API Key；无多用户/RBAC、支付退款、真实物流、多仓、自动超时取消、生产监控与目标引擎迁移。没有部署或远端发布。参考酒店项目仅作静态审查，没有运行复现其缺陷。公开 UCI 数据仅核查许可与字段，没有下载导入。当前数据全部合成。
+本地单商家管理原型，只有共享 API Key；无多用户/RBAC、支付退款、真实物流、多仓、自动超时取消、生产监控与目标引擎迁移。没有部署；该历史阶段完成时尚未远端发布。参考酒店项目仅作静态审查，没有运行复现其缺陷。公开 UCI 数据仅核查许可与字段，没有下载导入。当前数据全部合成。
 
 技术资料：[SQLite 事务](https://www.sqlite.org/lang_transaction.html)、[FastAPI 测试](https://fastapi.tiangolo.com/tutorial/testing/)。后续应在选定数据库中重跑并发场景，再据实更新该记录。
 
@@ -80,3 +80,8 @@ Migration demo passed: v1 -> v2; backup readable; order/stock preserved; termina
 ~~~
 
 Python 环境仍为实际已有的 3.10.4，不是新生产部署推荐版本。PostgreSQL 与远端上传状态未变。
+
+
+## 首次源码发布前复验
+
+脱敏发布副本已重新通过 50 项测试及临时数据库业务、迁移和真实本地 HTTP 检查。原始 JUnit 文件仅移除环境主机名，保留测试明细、数量与时长。最新范围和局限见 [发布前验证](12-publication-verification.md)。
