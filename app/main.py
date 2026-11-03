@@ -5,12 +5,14 @@ from pathlib import Path
 import secrets
 import sqlite3
 
-from fastapi import Depends, FastAPI, Header, Query
+from fastapi import Depends, FastAPI, Query, Security
+from fastapi.security import APIKeyHeader
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .db import Database
-from .schemas import Adjustment, OrderCreate, ProductCreate, ProductUpdate
+from .schemas import (Adjustment, OrderCreate, ProductCreate, ProductUpdate,
+                      ProductRead, MovementRead, OrderSummary, OrderRead)
 from . import service
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,11 +30,13 @@ def create_app(db_path=None, api_key=None):
         db.initialize()
         yield
 
-    def authorize(x_api_key: str = Header(default="")):
-        if not secrets.compare_digest(x_api_key.encode(), key.encode()):
+    api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+    def authorize(x_api_key: str | None = Security(api_key_header)):
+        if not secrets.compare_digest((x_api_key or "").encode(), key.encode()):
             raise service.BusinessError(401, "UNAUTHORIZED", "API Key 不正确")
 
-    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.1.0",
+    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.2.0",
                   lifespan=lifespan, dependencies=[Depends(authorize)])
     app.state.db = db
 
@@ -63,58 +67,58 @@ def create_app(db_path=None, api_key=None):
             c.execute("SELECT 1")
         return {"status": "ok", "data_source": "synthetic"}
 
-    @app.post("/products", status_code=201)
+    @app.post("/products", status_code=201, response_model=ProductRead)
     def product_create(data: ProductCreate):
         return service.create_product(db, data)
 
-    @app.get("/products")
+    @app.get("/products", response_model=list[ProductRead])
     def products(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
         return service.list_products(db, limit, offset)
 
-    @app.get("/products/{product_id}")
+    @app.get("/products/{product_id}", response_model=ProductRead)
     def product_get(product_id: int):
         with db.connection() as c:
             return service.require_product(c, product_id)
 
-    @app.put("/products/{product_id}")
+    @app.put("/products/{product_id}", response_model=ProductRead)
     def product_update(product_id: int, data: ProductUpdate):
         return service.update_product(db, product_id, data)
 
-    @app.delete("/products/{product_id}")
+    @app.delete("/products/{product_id}", response_model=ProductRead)
     def product_delete(product_id: int):
         return service.update_product(db, product_id)
 
-    @app.post("/products/{product_id}/stock-adjustments", status_code=201)
+    @app.post("/products/{product_id}/stock-adjustments", status_code=201, response_model=MovementRead)
     def stock_adjust(product_id: int, data: Adjustment):
         return service.adjust_stock(db, product_id, data)
 
-    @app.get("/products/{product_id}/movements")
+    @app.get("/products/{product_id}/movements", response_model=list[MovementRead])
     def movements(product_id: int, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
         with db.connection() as c:
             service.require_product(c, product_id)
             return [dict(r) for r in c.execute("SELECT * FROM stock_movements WHERE product_id=? ORDER BY id LIMIT ? OFFSET ?",
                                                (product_id, limit, offset))]
 
-    @app.post("/orders", status_code=201)
+    @app.post("/orders", status_code=201, response_model=OrderRead)
     def order_create(data: OrderCreate):
         return service.place_order(db, data)
 
-    @app.get("/orders")
+    @app.get("/orders", response_model=list[OrderSummary])
     def orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
         with db.connection() as c:
             return [dict(r) for r in c.execute("SELECT id,status,total_cents,created_at FROM orders ORDER BY created_at,id LIMIT ? OFFSET ?",
                                                (limit, offset))]
 
-    @app.get("/orders/{order_id}")
+    @app.get("/orders/{order_id}", response_model=OrderRead)
     def order_get(order_id: str):
         with db.connection() as c:
             return service.order_detail(c, order_id)
 
-    @app.post("/orders/{order_id}/cancel")
+    @app.post("/orders/{order_id}/cancel", response_model=OrderRead)
     def order_cancel(order_id: str):
         return service.transition_order(db, order_id, "CANCELLED")
 
-    @app.post("/orders/{order_id}/fulfill")
+    @app.post("/orders/{order_id}/fulfill", response_model=OrderRead)
     def order_fulfill(order_id: str):
         return service.transition_order(db, order_id, "FULFILLED")
 

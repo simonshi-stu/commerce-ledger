@@ -255,3 +255,69 @@ def test_initial_schema_migration_and_future_version_guard(tmp_path):
     with pytest.raises(RuntimeError):
         db.initialize()
 
+
+def test_twenty_http_buyers_compete_for_last_unit(api):
+    client, db = api
+    pid = product(client, stock=1)
+    barrier = threading.Barrier(20)
+
+    def buy(i):
+        barrier.wait(timeout=10)
+        return client.post("/orders", json=order(pid, f"http-race-{i:03}"))
+
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        responses = list(pool.map(buy, range(20)))
+    assert sum(r.status_code == 201 for r in responses) == 1
+    rejected = [r for r in responses if r.status_code != 201]
+    assert len(rejected) == 19
+    assert all(r.status_code == 409 and r.json()["error"]["code"] == "INSUFFICIENT_STOCK" for r in rejected)
+    assert client.get(f"/products/{pid}").json()["available"] == 0
+    assert len(client.get("/orders").json()) == 1
+
+
+def test_cancel_and_fulfill_race_has_one_terminal_state(api):
+    client, db = api
+    pid = product(client, stock=1)
+    oid = client.post("/orders", json=order(pid)).json()["id"]
+    barrier = threading.Barrier(2)
+
+    def transition(target):
+        barrier.wait(timeout=10)
+        try:
+            return service.transition_order(db, oid, target)["status"]
+        except service.BusinessError as exc:
+            assert exc.code == "INVALID_ORDER_STATE"
+            return "CONFLICT"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(transition, ["CANCELLED", "FULFILLED"]))
+    assert results.count("CONFLICT") == 1
+    final = client.get(f"/orders/{oid}").json()["status"]
+    stock = client.get(f"/products/{pid}").json()["available"]
+    assert (final, stock) in [("CANCELLED", 1), ("FULFILLED", 0)]
+
+
+def test_failed_order_can_retry_same_key_after_restock(api):
+    client, db = api
+    pid = product(client, stock=0)
+    payload = order(pid)
+    assert client.post("/orders", json=payload).status_code == 409
+    assert client.post(f"/products/{pid}/stock-adjustments", json={
+        "delta": 1, "request_key": "retry-restock-001", "reason": "模拟补货"}).status_code == 201
+    created = client.post("/orders", json=payload)
+    assert created.status_code == 201
+    assert client.post("/orders", json=payload).json()["id"] == created.json()["id"]
+
+
+def test_openapi_documents_authentication_and_response_contracts(api):
+    client, db = api
+    spec = client.get("/openapi.json").json()
+    assert spec["components"]["securitySchemes"]["APIKeyHeader"] == {
+        "type": "apiKey", "in": "header", "name": "X-API-Key"}
+    operation = spec["paths"]["/orders"]["post"]
+    assert operation["security"] == [{"APIKeyHeader": []}]
+    assert operation["responses"]["201"]["content"]["application/json"]["schema"]["$ref"].endswith("/OrderRead")
+    assert "unit_price_cents" in spec["components"]["schemas"]["OrderItemRead"]["properties"]
+    with TestClient(create_app(db.path, KEY)) as unauthenticated:
+        assert unauthenticated.get("/products").status_code == 401
+

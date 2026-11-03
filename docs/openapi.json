@@ -2,25 +2,13 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Commerce Ledger · 本地教学后端",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/health": {
       "get": {
         "summary": "Health",
         "operationId": "health_health_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -29,34 +17,22 @@
                 "schema": {}
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/products": {
       "post": {
         "summary": "Product Create",
         "operationId": "product_create_products_post",
-        "parameters": [
+        "security": [
           {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
+            "APIKeyHeader": []
           }
         ],
         "requestBody": {
@@ -74,7 +50,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
               }
             }
           },
@@ -93,6 +71,11 @@
       "get": {
         "summary": "Products",
         "operationId": "products_products_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -116,16 +99,6 @@
               "default": 0,
               "title": "Offset"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -133,7 +106,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductRead"
+                  },
+                  "title": "Response Products Products Get"
+                }
               }
             }
           },
@@ -154,6 +133,11 @@
       "get": {
         "summary": "Product Get",
         "operationId": "product_get_products__product_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "product_id",
@@ -163,16 +147,6 @@
               "type": "integer",
               "title": "Product Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -180,7 +154,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
               }
             }
           },
@@ -199,6 +175,11 @@
       "put": {
         "summary": "Product Update",
         "operationId": "product_update_products__product_id__put",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "product_id",
@@ -207,16 +188,6 @@
             "schema": {
               "type": "integer",
               "title": "Product Id"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -235,7 +206,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
               }
             }
           },
@@ -254,6 +227,11 @@
       "delete": {
         "summary": "Product Delete",
         "operationId": "product_delete_products__product_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "product_id",
@@ -263,16 +241,6 @@
               "type": "integer",
               "title": "Product Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -280,7 +248,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
               }
             }
           },
@@ -301,6 +271,11 @@
       "post": {
         "summary": "Stock Adjust",
         "operationId": "stock_adjust_products__product_id__stock_adjustments_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "product_id",
@@ -309,16 +284,6 @@
             "schema": {
               "type": "integer",
               "title": "Product Id"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -337,7 +302,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MovementRead"
+                }
               }
             }
           },
@@ -358,6 +325,11 @@
       "get": {
         "summary": "Movements",
         "operationId": "movements_products__product_id__movements_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "product_id",
@@ -390,16 +362,6 @@
               "default": 0,
               "title": "Offset"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -407,7 +369,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovementRead"
+                  },
+                  "title": "Response Movements Products  Product Id  Movements Get"
+                }
               }
             }
           },
@@ -428,16 +396,9 @@
       "post": {
         "summary": "Order Create",
         "operationId": "order_create_orders_post",
-        "parameters": [
+        "security": [
           {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
+            "APIKeyHeader": []
           }
         ],
         "requestBody": {
@@ -455,7 +416,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
               }
             }
           },
@@ -474,6 +437,11 @@
       "get": {
         "summary": "Orders",
         "operationId": "orders_orders_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -497,16 +465,6 @@
               "default": 0,
               "title": "Offset"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -514,7 +472,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderSummary"
+                  },
+                  "title": "Response Orders Orders Get"
+                }
               }
             }
           },
@@ -535,6 +499,11 @@
       "get": {
         "summary": "Order Get",
         "operationId": "order_get_orders__order_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "order_id",
@@ -544,16 +513,6 @@
               "type": "string",
               "title": "Order Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -561,7 +520,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
               }
             }
           },
@@ -582,6 +543,11 @@
       "post": {
         "summary": "Order Cancel",
         "operationId": "order_cancel_orders__order_id__cancel_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "order_id",
@@ -591,16 +557,6 @@
               "type": "string",
               "title": "Order Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -608,7 +564,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
               }
             }
           },
@@ -629,6 +587,11 @@
       "post": {
         "summary": "Order Fulfill",
         "operationId": "order_fulfill_orders__order_id__fulfill_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "order_id",
@@ -638,16 +601,6 @@
               "type": "string",
               "title": "Order Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -655,7 +608,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
               }
             }
           },
@@ -717,6 +672,54 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MovementRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "product_id": {
+            "type": "integer",
+            "title": "Product Id"
+          },
+          "delta": {
+            "type": "integer",
+            "title": "Delta"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ADJUST",
+              "SALE",
+              "CANCEL"
+            ],
+            "title": "Kind"
+          },
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "delta",
+          "kind",
+          "reference",
+          "reason",
+          "created_at"
+        ],
+        "title": "MovementRead"
+      },
       "OrderCreate": {
         "properties": {
           "request_key": {
@@ -764,6 +767,103 @@
         ],
         "title": "OrderItem"
       },
+      "OrderItemRead": {
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "title": "Product Id"
+          },
+          "quantity": {
+            "type": "integer",
+            "title": "Quantity"
+          },
+          "unit_price_cents": {
+            "type": "integer",
+            "title": "Unit Price Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_id",
+          "quantity",
+          "unit_price_cents"
+        ],
+        "title": "OrderItemRead"
+      },
+      "OrderRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLACED",
+              "CANCELLED",
+              "FULFILLED"
+            ],
+            "title": "Status"
+          },
+          "total_cents": {
+            "type": "integer",
+            "title": "Total Cents"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderItemRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "total_cents",
+          "created_at",
+          "items"
+        ],
+        "title": "OrderRead"
+      },
+      "OrderSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLACED",
+              "CANCELLED",
+              "FULFILLED"
+            ],
+            "title": "Status"
+          },
+          "total_cents": {
+            "type": "integer",
+            "title": "Total Cents"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "total_cents",
+          "created_at"
+        ],
+        "title": "OrderSummary"
+      },
       "ProductCreate": {
         "properties": {
           "sku": {
@@ -792,6 +892,48 @@
           "price_cents"
         ],
         "title": "ProductCreate"
+      },
+      "ProductRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "sku": {
+            "type": "string",
+            "title": "Sku"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "active": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Active"
+          },
+          "available": {
+            "type": "integer",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "price_cents",
+          "active",
+          "available"
+        ],
+        "title": "ProductRead"
       },
       "ProductUpdate": {
         "properties": {
@@ -855,6 +997,13 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       }
     }
   }

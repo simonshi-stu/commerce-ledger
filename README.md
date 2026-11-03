@@ -4,7 +4,7 @@
 
 参考酒店项目的“资源管理→占用资源→完成业务→报表”思路，独立编写代码，没有复制参考代码、图片、SQL 数据或报告。演示商品和库存全部为**模拟数据**。金额统一为人民币分。
 
-**已验证：22 项测试通过 · 本地真实 HTTP 启动通过 · 20 连接争抢最后一件无超卖。** [查看验证记录](docs/05-verification.md)
+**已验证：26 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件。** [验证记录](docs/05-verification.md)
 
 ## 架构：一次请求经过什么
 
@@ -50,6 +50,7 @@ stateDiagram-v2
 3. 按 [分步骤学习](docs/03-learning.md) 跑一个闭环，再逐个理解函数。
 4. 看 [数据来源与后续阶段](docs/04-data-and-roadmap.md)，区分已实现和计划。
 5. 按 [从零编写顺序读代码](docs/06-code-walkthrough.md)，理解每层为什么这样写；[离线 OpenAPI](docs/openapi.json) 便于检查接口定义。
+6. 阅读 [阶段交付与准确限制](docs/07-stage-delivery.md)，查看 Git 阶段边界、待上传状态与 PostgreSQL 阻塞。
 
 ## 本地运行（Windows PowerShell，Python 3.10+）
 
@@ -72,7 +73,7 @@ $env:COMMERCE_API_KEY = "local-learning-key-change-me"
 
 默认数据库：data/commerce.db。可通过 COMMERCE_DB 设置独立文件路径。种子脚本可重复执行，不补回已卖出的库存，也不修改已有 SKU。服务不自动灌入种子。
 
-浏览器访问 http://127.0.0.1:8018/docs 查看交互 API。每个请求填写 X-API-Key 头，值为上面设置的密钥。此简化管理密钥用于本地学习；没有多用户登录、客户权限隔离或真实支付。只绑定本地地址。
+浏览器访问 http://127.0.0.1:8018/docs，点击 Authorize 填写 API Key，后续请求自动携带 X-API-Key。当前为本地单商家教学密钥，没有多用户权限隔离或真实支付。
 
 ## 一条命令看完整演示
 
