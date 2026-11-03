@@ -4,7 +4,7 @@
 
 参考酒店项目的“资源管理→占用资源→完成业务→报表”思路，独立编写代码，没有复制参考代码、图片、SQL 数据或报告。演示商品和库存全部为**模拟数据**。金额统一为人民币分。
 
-**已验证：50 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件。** [验证记录](docs/05-verification.md) · [发布前独立复验](docs/12-publication-verification.md)
+**已验证：67 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件，新增可验证备份与恢复演练。** [基础验证记录](docs/05-verification.md) · [基线发布复验](docs/12-publication-verification.md) · [恢复阶段验证](docs/14-recovery-verification.md)
 
 项目仓库：[simonshi-stu/commerce-ledger](https://github.com/simonshi-stu/commerce-ledger)。
 
@@ -56,10 +56,12 @@ stateDiagram-v2
 7. 跟着 [只读核对与快照教程](docs/08-reconciliation-learning.md) 检查库存流水和订单金额，理解为什么多个查询需要一致快照。
 8. 阅读 [凭据与权限边界](docs/09-security-boundaries.md)，再沿 [下单请求代码地图](docs/10-order-code-map.md) 追踪路由、验证、事务与测试。
 9. 阅读 [版本迁移与最小本地运行](docs/11-migrations-and-local-running.md)，真实演示旧库升级、备份、失败回滚与数据库历史约束。
+10. 跟着 [备份与恢复教程](docs/13-backup-and-recovery.md)，验证 WAL 快照、恢复后的订单/库存/幂等和拒绝覆盖。
+11. 使用 [完整面试讲解与自测](docs/15-interview-guide.md)，按业务、架构、数据库、并发、取舍、证据和局限逐步准备，并如实说明 AI 辅助开发。
 
 ## 本地运行（Windows PowerShell，Python 3.10+）
 
-在本项目目录打开终端。这里已创建 .venv；换机器时执行：
+在本项目目录打开终端。首次克隆或换机器时执行：
 
 ~~~powershell
 py -3.10 -m venv .venv
@@ -107,7 +109,9 @@ $env:COMMERCE_API_KEY = "local-learning-key-change-me"
 | app/db.py | 独立连接、外键开启、BEGIN IMMEDIATE、提交/回滚 |
 | app/schema.sql | 5 张表、外键、唯一键、CHECK、索引 |
 | app/seed.py | 5 个合成商品与可重复种子 |
+| app/recovery.py | 只读验证、备份和恢复到新文件的 CLI |
 | tests/test_backend.py | 业务/HTTP/并发测试 |
+| tests/test_recovery.py | WAL、恢复语义、异常和拒绝覆盖测试 |
 | scripts/demo.py | 临时数据库端到端演示 |
 | docs/ | 中文拆解、教学与证据 |
 
@@ -137,3 +141,7 @@ COMMERCE_API_KEY 为必填管理凭据；可选 COMMERCE_READ_API_KEY 只能读�
 ## 真实旧库升级演示（API 0.5.0 / DB v2）
 
 运行 python -m scripts.migration_demo，在临时旧库验证 v1 到 v2 升级、数据保留、备份可读、终态保护和重复执行。数据库现在拒绝改写历史明细与库存流水；正常取消追加返还流水。当前没有 PostgreSQL 实现或实测；本次源码发布不包含运行数据库。
+
+## 可验证备份与恢复演练（第二阶段 / DB v2）
+
+运行 `python -m scripts.recovery_demo`，在临时合成库完成备份、原库继续变化、恢复到新文件、幂等重试和拒绝覆盖演练。手动操作使用 `python -m app.recovery backup|verify|restore`；参数、失败排查与面试讲解见 [第 13 章](docs/13-backup-and-recovery.md)。备份通过结构、外键和业务核对后才发布；没有生产灾备、PostgreSQL 或 Docker 实测。
