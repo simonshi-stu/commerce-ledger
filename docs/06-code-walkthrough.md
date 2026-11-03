@@ -16,7 +16,7 @@ app/db.py 的 connection 是上下文管理器：进入时建立连接，退出�
 
 transaction 在连接内执行 BEGIN IMMEDIATE，yield 把连接交给业务函数；业务正常结束就 commit，出现异常就 rollback 再向上抛。业务函数只要在 with db.transaction() as c 中操作，就有统一失败恢复。
 
-initialize 先读取 user_version。0 表示未初始化，执行初始 DDL 并记为 1；1 直接复用；大于 1 拒绝用旧应用读新库。当前没有版本 2 升级代码，不能把 IF NOT EXISTS 当作完整迁移工具。
+initialize 按 MIGRATIONS 顺序执行未应用版本，当前数据库版本为 2。新文件可初始化，已有旧库在服务启动时拒绝静默升级；先用 app.migrate --apply 生成一致性备份并升级。全部待应用 DDL 与版本更新在同一脚本事务中，失败 rollback；更高未知版本拒绝覆盖。详见第 11 章。
 
 ## 3. 把外部输入变成可靠的内部对象
 

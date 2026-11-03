@@ -251,8 +251,8 @@ def test_initial_schema_migration_and_future_version_guard(tmp_path):
     db.initialize()
     db.initialize()
     with db.connection() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
-        conn.execute("PRAGMA user_version=2")
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        conn.execute("PRAGMA user_version=3")
     with pytest.raises(RuntimeError):
         db.initialize()
 
@@ -488,4 +488,123 @@ def test_database_error_message_is_redacted(api, monkeypatch, caplog):
     assert response.json()["error"]["request_id"] == response.headers["X-Request-ID"]
     assert marker not in response.text
     assert marker not in "\n".join(r.getMessage() for r in caplog.records if r.name == "app.main")
+
+
+def make_legacy_v1_database(path):
+    """真实创建旧版文件，不借助新版初始化代码伪装升级。"""
+    from pathlib import Path
+    db = Database(path)
+    with db.connection() as conn:
+        conn.executescript(Path("app/schema.sql").read_text(encoding="utf-8"))
+        conn.execute("PRAGMA user_version=1")
+    from app.schemas import ProductCreate
+    service.create_product(db, ProductCreate(
+        sku="LEGACY-001", name="旧版模拟商品", price_cents=2990))
+    from app.schemas import Adjustment
+    service.adjust_stock(db, 1, Adjustment(delta=5, request_key="legacy-stock-001", reason="旧版模拟入库"))
+    created = service.place_order(db, OrderCreate(**order(1, "legacy-order-001", quantity=2)))
+    return db, created
+
+
+def test_migration_v1_to_v2_preserves_existing_business_data(tmp_path):
+    db, before = make_legacy_v1_database(tmp_path / "legacy.db")
+    with db.connection() as conn:
+        inventory_before = tuple(conn.execute("SELECT * FROM inventory").fetchone())
+        movements_before = [tuple(row) for row in conn.execute("SELECT * FROM stock_movements ORDER BY id")]
+    db.initialize()
+    db.initialize()
+    with db.connection() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert service.order_detail(conn, before["id"]) == before
+        assert tuple(conn.execute("SELECT * FROM inventory").fetchone()) == inventory_before
+        assert [tuple(row) for row in conn.execute("SELECT * FROM stock_movements ORDER BY id")] == movements_before
+    assert service.check_integrity(db, 20)["healthy"]
+    assert service.transition_order(db, before["id"], "CANCELLED")["status"] == "CANCELLED"
+
+
+def test_failed_migration_rolls_back_ddl_and_keeps_old_version(tmp_path, monkeypatch):
+    import app.db as db_module
+    db, before = make_legacy_v1_database(tmp_path / "failed-migration.db")
+    broken = tmp_path / "broken.sql"
+    broken.write_text("CREATE TABLE must_rollback(id INTEGER);\nTHIS IS NOT VALID SQL;", encoding="utf-8")
+    monkeypatch.setattr(db_module, "MIGRATIONS", (db_module.MIGRATIONS[0], (2, broken)))
+    with pytest.raises(sqlite3.OperationalError):
+        db.initialize()
+    with db.connection() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("SELECT name FROM sqlite_master WHERE name='must_rollback'").fetchone() is None
+        assert service.order_detail(conn, before["id"]) == before
+
+
+@pytest.mark.parametrize("terminal", ["CANCELLED", "FULFILLED"])
+def test_database_guards_terminal_state_and_order_history(api, terminal):
+    client, db = api
+    pid = product(client)
+    other_pid = product(client, "OTHER-ITEM")
+    oid = client.post("/orders", json=order(pid)).json()["id"]
+    service.transition_order(db, oid, terminal)
+    with db.connection() as conn:
+        for target in ["PLACED", "FULFILLED" if terminal == "CANCELLED" else "CANCELLED"]:
+            with pytest.raises(sqlite3.IntegrityError, match="state transition"):
+                conn.execute("UPDATE orders SET status=? WHERE id=?", (target, oid))
+        for sql, parameters in [
+            ("UPDATE order_items SET unit_price_cents=1 WHERE order_id=?", (oid,)),
+            ("DELETE FROM order_items WHERE order_id=?", (oid,)),
+        ]:
+            with pytest.raises(sqlite3.IntegrityError):
+                conn.execute(sql, parameters)
+        with pytest.raises(sqlite3.IntegrityError, match="terminal order"):
+            conn.execute("INSERT INTO order_items VALUES(?,?,1,1)", (oid, other_pid))
+    assert client.get(f"/orders/{oid}").json()["status"] == terminal
+    assert client.get("/integrity").json()["healthy"]
+
+
+def test_stock_history_is_append_only_in_database(api):
+    client, db = api
+    pid = product(client)
+    with db.connection() as conn:
+        for sql in ["UPDATE stock_movements SET reason='rewritten'", "DELETE FROM stock_movements"]:
+            with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+                conn.execute(sql)
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            oid = client.post("/orders", json=order(pid)).json()["id"]
+            conn.execute("UPDATE order_items SET quantity=2 WHERE order_id=?", (oid,))
+    assert client.get("/integrity").json()["healthy"]
+
+
+def test_migration_command_backs_up_old_data_and_is_repeatable(tmp_path):
+    from app.migrate import inspect_version, migrate_database
+    from pathlib import Path
+    db, before = make_legacy_v1_database(tmp_path / "command.db")
+    result = migrate_database(db.path)
+    assert result["changed"] and inspect_version(db.path) == 2
+    assert inspect_version(result["backup"]) == 1
+    with Database(result["backup"]).connection() as conn:
+        assert service.order_detail(conn, before["id"]) == before
+    assert migrate_database(db.path)["backup"] is None
+    assert len(list(Path(tmp_path).glob("*.bak"))) == 1
+
+
+def test_version_check_does_not_create_files_or_overwrite_future_database(tmp_path):
+    from app.migrate import inspect_version, migrate_database
+    missing = tmp_path / "missing.db"
+    assert inspect_version(missing) == 0 and not missing.exists()
+    future = tmp_path / "future.db"
+    with sqlite3.connect(future) as conn:
+        conn.execute("PRAGMA user_version=3")
+    with pytest.raises(RuntimeError):
+        migrate_database(future)
+    assert inspect_version(future) == 3
+    assert list(tmp_path.glob("*.bak")) == []
+
+
+def test_startup_requires_explicit_migration_for_existing_old_database(tmp_path):
+    db, before = make_legacy_v1_database(tmp_path / "startup-legacy.db")
+    with pytest.raises(RuntimeError, match="app.migrate"):
+        with TestClient(create_app(db.path, KEY, "")):
+            pass
+    from app.migrate import inspect_version
+    assert inspect_version(db.path) == 1
+    with db.connection() as conn:
+        assert service.order_detail(conn, before["id"]) == before
 

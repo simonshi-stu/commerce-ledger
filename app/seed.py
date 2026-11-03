@@ -13,7 +13,7 @@ PRODUCTS = [
 
 
 def seed(db):
-    db.initialize()
+    db.initialize(allow_upgrade=False)
     with db.transaction() as c:
         for sku, name, price, quantity in PRODUCTS:
             row = c.execute("SELECT id FROM products WHERE sku=?", (sku,)).fetchone()

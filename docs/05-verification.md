@@ -5,11 +5,11 @@
 ## 最终测试
 
 ~~~text
-python -m pytest -q --basetemp=.test-tmp/stage4-01 --tb=short --junitxml=docs/test-results.xml
-42 passed, 1 warning in 8.49s
+python -m pytest -q --basetemp=.test-tmp/stage5-release --tb=short --junitxml=docs/test-results.xml
+50 passed, 1 warning in 9.62s
 ~~~
 
-机器可读报告：[test-results.xml](test-results.xml)。42 项包含参数化输入场景；不表示 42 个独立业务模块。
+机器可读报告：[test-results.xml](test-results.xml)。50 项包含参数化输入场景；不表示 50 个独立业务模块。
 
 覆盖：商品 CRUD 与下架、API Key、缺失资源、SKU 唯一、参数绑定保留 SQL 样式普通文字、严格数值验证、数据库外键与 CHECK、初始迁移重复执行及未来版本拒绝、价格快照、库存入库幂等、同单重复商品拒绝、订单幂等与不同参数冲突、明细排序不改变幂等、缺货整单回滚、重复取消、履约终态限制、锁等待的 503 响应、种子重复运行。
 
@@ -68,3 +68,15 @@ HTTP 层 20 个 ASGI 请求争抢最后一件：1 个 201、19 个 INSUFFICIENT_
 新增 12 项测试（含 7 类写操作的权限矩阵），累计 42 passed、1 条未隐藏的依赖弃用警告。验证只读凭据权限、无默认管理密钥、管理/只读密钥不能相同、提交前异常回滚、提交后响应失败原键重试、应用日志和错误响应不泄露异常原文。当前 API 0.4.0，数据库结构版本仍为 1。
 
 安全结果限于本地共享凭据、当前 JSON API 与应用自身错误日志；不是用户账号体系、生产安全认证或 PostgreSQL 测试。实际运行的 demo 和 HTTP smoke 也已包含 reader 拒绝写入与请求编号检查。
+
+## 第五阶段新增证据
+
+累计 50 项通过（1 条依赖警告），API 0.5.0 / DB v2。真实创建旧版文件后验证升级保留订单、库存和流水；错误迁移撤销 DDL 并保持 v1；CLI 升级前备份可读，重复执行不重复备份；已有旧库启动拒绝静默升级；直接 SQL 也不能倒退订单终态或改删历史明细/流水。
+
+已对本项目自身的合成 data/commerce.db 实际执行检查 v1、生成备份并升级到 v2、再次检查 v2。没有删除数据库重建，没有读写原项目数据。临时旧库演示实际输出：
+
+~~~text
+Migration demo passed: v1 -> v2; backup readable; order/stock preserved; terminal guard enforced; repeat safe
+~~~
+
+Python 环境仍为实际已有的 3.10.4，不是新生产部署推荐版本。PostgreSQL 与远端上传状态未变。

@@ -28,7 +28,7 @@ def create_app(db_path=None, api_key=None, read_api_key=None):
 
     @asynccontextmanager
     async def lifespan(app):
-        db.initialize()
+        db.initialize(allow_upgrade=False)
         yield
 
     api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -36,7 +36,7 @@ def create_app(db_path=None, api_key=None, read_api_key=None):
     def authorize(request: Request, x_api_key: str | None = Security(api_key_header)):
         return policy.authorize(x_api_key, request.method)
 
-    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.4.0",
+    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.5.0",
                   lifespan=lifespan, dependencies=[Depends(authorize)])
     app.state.db = db
 
