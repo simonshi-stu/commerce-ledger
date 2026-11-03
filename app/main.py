@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from .db import Database
 from .schemas import (Adjustment, OrderCreate, ProductCreate, ProductUpdate,
-                      ProductRead, MovementRead, OrderSummary, OrderRead)
+                      ProductRead, MovementRead, OrderSummary, OrderRead, IntegrityRead)
 from . import service
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,7 +36,7 @@ def create_app(db_path=None, api_key=None):
         if not secrets.compare_digest((x_api_key or "").encode(), key.encode()):
             raise service.BusinessError(401, "UNAUTHORIZED", "API Key 不正确")
 
-    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.2.0",
+    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.3.0",
                   lifespan=lifespan, dependencies=[Depends(authorize)])
     app.state.db = db
 
@@ -70,6 +70,10 @@ def create_app(db_path=None, api_key=None):
     @app.post("/products", status_code=201, response_model=ProductRead)
     def product_create(data: ProductCreate):
         return service.create_product(db, data)
+
+    @app.get("/integrity", response_model=IntegrityRead)
+    def integrity(limit: int = Query(20, ge=1, le=100)):
+        return service.check_integrity(db, limit)
 
     @app.get("/products", response_model=list[ProductRead])
     def products(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):

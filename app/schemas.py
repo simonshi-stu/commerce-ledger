@@ -86,3 +86,28 @@ class OrderItemRead(BaseModel):
 class OrderRead(OrderSummary):
     items: list[OrderItemRead]
 
+
+class StockMismatch(BaseModel):
+    product_id: int
+    sku: str
+    available: int | None
+    ledger_available: int
+
+
+class OrderMismatch(BaseModel):
+    order_id: str
+    total_cents: int
+    item_total_cents: int
+    item_count: int
+
+
+class IntegrityRead(BaseModel):
+    healthy: bool
+    products_checked: int
+    orders_checked: int
+    stock_mismatch_count: int
+    order_mismatch_count: int
+    stock_mismatches: list[StockMismatch]
+    order_mismatches: list[OrderMismatch]
+    truncated: bool
+

@@ -5,11 +5,11 @@
 ## 最终测试
 
 ~~~text
-python -m pytest -q --basetemp=.test-tmp/stage2-01 --tb=short --junitxml=docs/test-results.xml
-26 passed, 1 warning in 6.69s
+python -m pytest -q --basetemp=.test-tmp/stage3-01 --tb=short --junitxml=docs/test-results.xml
+30 passed, 1 warning in 7.12s
 ~~~
 
-机器可读报告：[test-results.xml](test-results.xml)。26 项包含参数化输入场景；不表示 26 个独立业务模块。
+机器可读报告：[test-results.xml](test-results.xml)。30 项包含参数化输入场景；不表示 30 个独立业务模块。
 
 覆盖：商品 CRUD 与下架、API Key、缺失资源、SKU 唯一、参数绑定保留 SQL 样式普通文字、严格数值验证、数据库外键与 CHECK、初始迁移重复执行及未来版本拒绝、价格快照、库存入库幂等、同单重复商品拒绝、订单幂等与不同参数冲突、明细排序不改变幂等、缺货整单回滚、重复取消、履约终态限制、锁等待的 503 响应、种子重复运行。
 
@@ -28,12 +28,13 @@ python -m scripts.demo 实际输出：
 1. Simulated order placed: [临时订单 UUID] CNY cents: 15900
 2. Second purchase rejected: insufficient stock
 3. Cancellation restored exactly one unit; demo complete
+4. Read-only reconciliation passed: stock ledger and order totals match
 ~~~
 
 python -m scripts.smoke_http 实际输出：
 
 ~~~text
-HTTP smoke passed: health, docs, OpenAPI, product create/read, authentication
+HTTP smoke passed: health, docs, OpenAPI, product create/read, authentication, reconciliation
 ~~~
 
 HTTP 验证确实启动本地 uvicorn 子进程，使用临时数据库并自动停止；不是仅根据源码推测。demo 与测试均未操作真实店铺。
@@ -56,3 +57,7 @@ HTTP 验证确实启动本地 uvicorn 子进程，使用临时数据库并自动
 ## 第二阶段新增证据
 
 HTTP 层 20 个 ASGI 请求争抢最后一件：1 个 201、19 个 INSUFFICIENT_STOCK/409；同时新增取消/履约竞争、缺货后原键重试、OpenAPI 鉴权与响应契约测试。这不是 20 条真实 TCP 连接或生产压测。阶段细节见 07-stage-delivery.md。
+
+## 第三阶段新增证据
+
+新增 4 项只读核对测试：正常业务一致、临时库异常检测与返回上限、独立写连接提交后保持读快照一致、诊断连接拒绝写入。全部 30 项通过。API 版本 0.3.0；数据库无结构变化。SQLite 实测不代表 PostgreSQL 实测。

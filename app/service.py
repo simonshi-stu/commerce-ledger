@@ -124,3 +124,38 @@ def transition_order(db, order_id, target):
         c.execute("UPDATE orders SET status=? WHERE id=? AND status='PLACED'", (target, order_id))
         return order_detail(c, order_id)
 
+
+def check_integrity(db, limit):
+    """只读核对，不猜测哪一边正确，不自动修复资金/库存数据。"""
+    stock_query = """
+        SELECT p.id AS product_id,p.sku,i.available,
+               COALESCE(SUM(m.delta),0) AS ledger_available
+        FROM products p
+        LEFT JOIN inventory i ON i.product_id=p.id
+        LEFT JOIN stock_movements m ON m.product_id=p.id
+        GROUP BY p.id,p.sku,i.available
+        HAVING i.available IS NULL OR i.available<>COALESCE(SUM(m.delta),0)
+    """
+    order_query = """
+        SELECT o.id AS order_id,o.total_cents,
+               COALESCE(SUM(i.quantity*i.unit_price_cents),0) AS item_total_cents,
+               COUNT(i.product_id) AS item_count
+        FROM orders o LEFT JOIN order_items i ON i.order_id=o.id
+        GROUP BY o.id,o.total_cents
+        HAVING COUNT(i.product_id)=0 OR o.total_cents<>COALESCE(SUM(i.quantity*i.unit_price_cents),0)
+    """
+    with db.read_snapshot() as c:
+        products = c.execute("SELECT COUNT(*) FROM products").fetchone()[0]
+        orders = c.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+        stock_count = c.execute("SELECT COUNT(*) FROM (" + stock_query + ")").fetchone()[0]
+        order_count = c.execute("SELECT COUNT(*) FROM (" + order_query + ")").fetchone()[0]
+        stocks = [dict(row) for row in c.execute(stock_query + " ORDER BY p.id LIMIT ?", (limit,))]
+        amounts = [dict(row) for row in c.execute(order_query + " ORDER BY o.id LIMIT ?", (limit,))]
+        return {
+            "healthy": stock_count == 0 and order_count == 0,
+            "products_checked": products, "orders_checked": orders,
+            "stock_mismatch_count": stock_count, "order_mismatch_count": order_count,
+            "stock_mismatches": stocks, "order_mismatches": amounts,
+            "truncated": stock_count > limit or order_count > limit,
+        }
+

@@ -23,4 +23,7 @@ if __name__ == "__main__":
             assert client.post(f"/orders/{order['id']}/cancel").status_code == 200
             assert client.get(f"/products/{rare['id']}").json()["available"] == 1
             print("3. Cancellation restored exactly one unit; demo complete")
+            audit = client.get("/integrity").json()
+            assert audit["healthy"] and audit["orders_checked"] == 1
+            print("4. Read-only reconciliation passed: stock ledger and order totals match")
 

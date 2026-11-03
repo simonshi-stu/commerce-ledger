@@ -321,3 +321,64 @@ def test_openapi_documents_authentication_and_response_contracts(api):
     with TestClient(create_app(db.path, KEY)) as unauthenticated:
         assert unauthenticated.get("/products").status_code == 401
 
+
+def test_integrity_is_healthy_after_business_flow(api):
+    client, db = api
+    a, b = product(client, "AUDIT-A"), product(client, "AUDIT-B")
+    oid = client.post("/orders", json=order(a)).json()["id"]
+    assert client.post(f"/orders/{oid}/cancel").status_code == 200
+    client.post("/orders", json=order(b, "audit-order-002"))
+    response = client.get("/integrity")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["healthy"] and not result["truncated"]
+    assert result["products_checked"] == 2 and result["orders_checked"] == 2
+    assert result["stock_mismatches"] == result["order_mismatches"] == []
+    assert client.get("/integrity", headers={"X-API-Key": "wrong"}).status_code == 401
+
+
+def test_integrity_detects_corruption_and_bounds_details(api):
+    client, db = api
+    a, b = product(client, "BROKEN-A"), product(client, "BROKEN-B")
+    oid = client.post("/orders", json=order(a)).json()["id"]
+    # 仅在测试临时库中模拟人工绕过业务层，API 不提供这些破坏操作。
+    with db.transaction() as conn:
+        conn.execute("UPDATE inventory SET available=99 WHERE product_id=?", (a,))
+        conn.execute("DELETE FROM inventory WHERE product_id=?", (b,))
+        conn.execute("UPDATE orders SET total_cents=0 WHERE id=?", (oid,))
+    result = client.get("/integrity?limit=1").json()
+    assert not result["healthy"] and result["truncated"]
+    assert result["stock_mismatch_count"] == 2
+    assert result["order_mismatch_count"] == 1
+    assert len(result["stock_mismatches"]) == 1
+    assert result["stock_mismatches"][0]["available"] == 99
+    assert result["stock_mismatches"][0]["ledger_available"] == 4
+    assert result["order_mismatches"][0]["item_total_cents"] == 2990
+    assert client.get("/integrity?limit=101").status_code == 422
+    with db.connection() as conn:
+        assert conn.execute("SELECT available FROM inventory WHERE product_id=?", (a,)).fetchone()[0] == 99
+    missing = client.get("/integrity?limit=100").json()["stock_mismatches"][1]
+    assert missing["product_id"] == b and missing["available"] is None
+
+
+def test_read_snapshot_does_not_mix_committed_versions(api):
+    client, db = api
+    pid = product(client)
+    from app.schemas import Adjustment
+    with db.read_snapshot() as conn:
+        before = conn.execute("SELECT available FROM inventory WHERE product_id=?", (pid,)).fetchone()[0]
+        service.adjust_stock(db, pid, Adjustment(delta=2, request_key="snapshot-adjust-001", reason="模拟补货"))
+        ledger = conn.execute("SELECT SUM(delta) FROM stock_movements WHERE product_id=?", (pid,)).fetchone()[0]
+        assert before == ledger == 5
+    assert client.get(f"/products/{pid}").json()["available"] == 7
+    assert client.get("/integrity").json()["healthy"]
+
+
+def test_read_snapshot_connection_refuses_writes(api):
+    client, db = api
+    product(client)
+    with db.read_snapshot() as conn:
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            conn.execute("UPDATE inventory SET available=999")
+    assert client.get("/integrity").json()["healthy"]
+

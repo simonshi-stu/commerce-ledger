@@ -4,7 +4,7 @@
 
 参考酒店项目的“资源管理→占用资源→完成业务→报表”思路，独立编写代码，没有复制参考代码、图片、SQL 数据或报告。演示商品和库存全部为**模拟数据**。金额统一为人民币分。
 
-**已验证：26 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件。** [验证记录](docs/05-verification.md)
+**已验证：30 项测试通过；服务层与 HTTP 层各验证 20 人争抢最后一件。** [验证记录](docs/05-verification.md)
 
 ## 架构：一次请求经过什么
 
@@ -51,6 +51,7 @@ stateDiagram-v2
 4. 看 [数据来源与后续阶段](docs/04-data-and-roadmap.md)，区分已实现和计划。
 5. 按 [从零编写顺序读代码](docs/06-code-walkthrough.md)，理解每层为什么这样写；[离线 OpenAPI](docs/openapi.json) 便于检查接口定义。
 6. 阅读 [阶段交付与准确限制](docs/07-stage-delivery.md)，查看 Git 阶段边界、待上传状态与 PostgreSQL 阻塞。
+7. 跟着 [只读核对与快照教程](docs/08-reconciliation-learning.md) 检查库存流水和订单金额，理解为什么多个查询需要一致快照。
 
 ## 本地运行（Windows PowerShell，Python 3.10+）
 
@@ -117,3 +118,7 @@ $env:COMMERCE_API_KEY = "local-learning-key-change-me"
 
 该脚本使用随机本地端口和临时数据库，启动 uvicorn，验证健康检查、Swagger、OpenAPI、商品写入/读取和鉴权，结束后关闭进程。
 
+
+## 数据一致性核对（API 0.3.0）
+
+GET /integrity 在只读事务里核对库存与流水、订单总额与明细合计。异常计数完整，明细限量返回；不自动覆盖账目，不代表全部业务正确。详见第 08 章教程。当前仍是 SQLite 本地实现，PostgreSQL 未实现或实测。

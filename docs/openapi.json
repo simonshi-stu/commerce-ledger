@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Commerce Ledger · 本地教学后端",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/health": {
@@ -112,6 +112,53 @@
                     "$ref": "#/components/schemas/ProductRead"
                   },
                   "title": "Response Products Products Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrity": {
+      "get": {
+        "summary": "Integrity",
+        "operationId": "integrity_integrity_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrityRead"
                 }
               }
             }
@@ -672,6 +719,60 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "IntegrityRead": {
+        "properties": {
+          "healthy": {
+            "type": "boolean",
+            "title": "Healthy"
+          },
+          "products_checked": {
+            "type": "integer",
+            "title": "Products Checked"
+          },
+          "orders_checked": {
+            "type": "integer",
+            "title": "Orders Checked"
+          },
+          "stock_mismatch_count": {
+            "type": "integer",
+            "title": "Stock Mismatch Count"
+          },
+          "order_mismatch_count": {
+            "type": "integer",
+            "title": "Order Mismatch Count"
+          },
+          "stock_mismatches": {
+            "items": {
+              "$ref": "#/components/schemas/StockMismatch"
+            },
+            "type": "array",
+            "title": "Stock Mismatches"
+          },
+          "order_mismatches": {
+            "items": {
+              "$ref": "#/components/schemas/OrderMismatch"
+            },
+            "type": "array",
+            "title": "Order Mismatches"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "healthy",
+          "products_checked",
+          "orders_checked",
+          "stock_mismatch_count",
+          "order_mismatch_count",
+          "stock_mismatches",
+          "order_mismatches",
+          "truncated"
+        ],
+        "title": "IntegrityRead"
+      },
       "MovementRead": {
         "properties": {
           "id": {
@@ -789,6 +890,34 @@
           "unit_price_cents"
         ],
         "title": "OrderItemRead"
+      },
+      "OrderMismatch": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "total_cents": {
+            "type": "integer",
+            "title": "Total Cents"
+          },
+          "item_total_cents": {
+            "type": "integer",
+            "title": "Item Total Cents"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "total_cents",
+          "item_total_cents",
+          "item_count"
+        ],
+        "title": "OrderMismatch"
       },
       "OrderRead": {
         "properties": {
@@ -957,6 +1086,41 @@
           "price_cents"
         ],
         "title": "ProductUpdate"
+      },
+      "StockMismatch": {
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "title": "Product Id"
+          },
+          "sku": {
+            "type": "string",
+            "title": "Sku"
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
+          },
+          "ledger_available": {
+            "type": "integer",
+            "title": "Ledger Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_id",
+          "sku",
+          "available",
+          "ledger_available"
+        ],
+        "title": "StockMismatch"
       },
       "ValidationError": {
         "properties": {

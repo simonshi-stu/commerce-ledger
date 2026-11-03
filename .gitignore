@@ -3,5 +3,7 @@ __pycache__/
 .pytest_cache/
 data/*.db*
 .env
+.env.*
+!.env.example
 .test-tmp/
 

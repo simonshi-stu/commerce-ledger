@@ -39,6 +39,19 @@ class Database:
             connection.close()
 
     @contextmanager
+    def read_snapshot(self):
+        """一次核对中的多条查询读取同一快照，并在连接级禁止写入。"""
+        with self.connection() as connection:
+            connection.execute("PRAGMA query_only=ON")
+            connection.execute("BEGIN")
+            try:
+                yield connection
+                connection.commit()
+            except BaseException:
+                connection.rollback()
+                raise
+
+    @contextmanager
     def transaction(self):
         with self.connection() as connection:
             connection.execute("BEGIN IMMEDIATE")

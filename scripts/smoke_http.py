@@ -48,7 +48,9 @@ def main():
                 assert created.status_code == 201, created.text
                 assert client.get("/products").json()[0]["available"] == 0
                 assert client.get("/products", headers={"X-API-Key": "wrong"}).status_code == 401
-                print("HTTP smoke passed: health, docs, OpenAPI, product create/read, authentication")
+                audit = client.get("/integrity").json()
+                assert audit["healthy"] and audit["products_checked"] == 1
+                print("HTTP smoke passed: health, docs, OpenAPI, product create/read, authentication, reconciliation")
         finally:
             process.terminate()
             try:
