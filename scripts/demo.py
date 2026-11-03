@@ -7,7 +7,7 @@ from app.seed import seed
 
 if __name__ == "__main__":
     with TemporaryDirectory(prefix="commerce-demo-") as folder:
-        app = create_app(Path(folder) / "demo.db", "demo-local-key")
+        app = create_app(Path(folder) / "demo.db", "demo-local-key", "demo-reader-key")
         with TestClient(app, headers={"X-API-Key": "demo-local-key"}) as client:
             seed(app.state.db)
             products = client.get("/products").json()
@@ -26,4 +26,7 @@ if __name__ == "__main__":
             audit = client.get("/integrity").json()
             assert audit["healthy"] and audit["orders_checked"] == 1
             print("4. Read-only reconciliation passed: stock ledger and order totals match")
+            assert client.get("/products", headers={"X-API-Key": "demo-reader-key"}).status_code == 200
+            assert client.post("/orders", json=payload, headers={"X-API-Key": "demo-reader-key"}).status_code == 403
+            print("5. Reader credential can inspect products but cannot place an order")
 

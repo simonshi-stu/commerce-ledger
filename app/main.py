@@ -2,10 +2,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-import secrets
 import sqlite3
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Query, Security
+from fastapi import Depends, FastAPI, Query, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -14,16 +14,17 @@ from .db import Database
 from .schemas import (Adjustment, OrderCreate, ProductCreate, ProductUpdate,
                       ProductRead, MovementRead, OrderSummary, OrderRead, IntegrityRead)
 from . import service
+from .security import KeyPolicy
 
 ROOT = Path(__file__).resolve().parent.parent
 log = logging.getLogger(__name__)
 
 
-def create_app(db_path=None, api_key=None):
+def create_app(db_path=None, api_key=None, read_api_key=None):
     db = Database(db_path or os.environ.get("COMMERCE_DB", str(ROOT / "data" / "commerce.db")))
     key = api_key if api_key is not None else os.environ.get("COMMERCE_API_KEY")
-    if not key:
-        raise RuntimeError("请先设置 COMMERCE_API_KEY；仅用于本地学习管理接口")
+    read_key = read_api_key if read_api_key is not None else os.environ.get("COMMERCE_READ_API_KEY", "")
+    policy = KeyPolicy(key, read_key)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -32,13 +33,30 @@ def create_app(db_path=None, api_key=None):
 
     api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-    def authorize(x_api_key: str | None = Security(api_key_header)):
-        if not secrets.compare_digest((x_api_key or "").encode(), key.encode()):
-            raise service.BusinessError(401, "UNAUTHORIZED", "API Key 不正确")
+    def authorize(request: Request, x_api_key: str | None = Security(api_key_header)):
+        return policy.authorize(x_api_key, request.method)
 
-    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.3.0",
+    app = FastAPI(title="Commerce Ledger · 本地教学后端", version="0.4.0",
                   lifespan=lifespan, dependencies=[Depends(authorize)])
     app.state.db = db
+
+    def report_failure(request, exc):
+        route = getattr(request.scope.get("route"), "path", "<unmatched>")
+        log.error("request_failure request_id=%s method=%s route=%s error_type=%s",
+                  request.state.request_id, request.method, route, type(exc).__name__)
+
+    @app.middleware("http")
+    async def safe_request_boundary(request, call_next):
+        request.state.request_id = uuid4().hex
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            report_failure(request, exc)
+            response = JSONResponse(status_code=500, content={"error": {
+                "code": "INTERNAL_ERROR", "message": "服务内部错误，请提供请求编号排查",
+                "request_id": request.state.request_id}})
+        response.headers["X-Request-ID"] = request.state.request_id
+        return response
 
     @app.exception_handler(service.BusinessError)
     async def business_error(request, exc):
@@ -58,8 +76,10 @@ def create_app(db_path=None, api_key=None):
         if getattr(exc, "sqlite_errorcode", None) in (5, 6) or "locked" in str(exc).lower():
             return JSONResponse(status_code=503, headers={"Retry-After": "1"},
                                 content={"error": {"code": "DATABASE_BUSY", "message": "数据库繁忙，请使用原幂等键重试"}})
-        log.exception("Database operation failed")
-        return JSONResponse(status_code=500, content={"error": {"code": "DATABASE_ERROR", "message": "数据库操作失败"}})
+        report_failure(request, exc)
+        return JSONResponse(status_code=500, content={"error": {
+            "code": "DATABASE_ERROR", "message": "数据库操作失败",
+            "request_id": request.state.request_id}})
 
     @app.get("/health")
     def health():

@@ -10,11 +10,12 @@ from app.schemas import OrderCreate
 from app import service
 
 KEY = "local-test-key"
+READ_KEY = "local-test-read-key"
 
 
 @pytest.fixture
 def api(tmp_path):
-    app = create_app(tmp_path / "test.db", KEY)
+    app = create_app(tmp_path / "test.db", KEY, READ_KEY)
     with TestClient(app, headers={"X-API-Key": KEY}) as client:
         yield client, app.state.db
 
@@ -381,4 +382,110 @@ def test_read_snapshot_connection_refuses_writes(api):
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             conn.execute("UPDATE inventory SET available=999")
     assert client.get("/integrity").json()["healthy"]
+
+
+@pytest.mark.parametrize("method,path,body", [
+    ("POST", "/products", {"sku": "NO-WRITE", "name": "blocked", "price_cents": 100}),
+    ("PUT", "/products/1", {"name": "blocked", "price_cents": 100}),
+    ("DELETE", "/products/1", None),
+    ("POST", "/products/1/stock-adjustments", {"delta": 1, "request_key": "blocked-adjust", "reason": "blocked"}),
+    ("POST", "/orders", {"request_key": "blocked-order", "items": [{"product_id": 1, "quantity": 1}]}),
+    ("POST", "/orders/{oid}/cancel", None),
+    ("POST", "/orders/{oid}/fulfill", None),
+])
+def test_reader_cannot_modify_any_business_surface(api, method, path, body):
+    client, db = api
+    pid = product(client)
+    oid = client.post("/orders", json=order(pid)).json()["id"]
+    response = client.request(method, path.format(oid=oid), json=body, headers={"X-API-Key": READ_KEY})
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+    assert client.get(f"/products/{pid}").json()["available"] == 4
+    assert client.get(f"/orders/{oid}").json()["status"] == "PLACED"
+    assert len(client.get("/products").json()) == 1
+
+
+def test_reader_can_read_but_is_not_a_separate_customer(api):
+    client, db = api
+    pid = product(client)
+    oid = client.post("/orders", json=order(pid)).json()["id"]
+    for path in ["/health", "/products", f"/products/{pid}", f"/products/{pid}/movements",
+                 "/orders", f"/orders/{oid}", "/integrity"]:
+        response = client.get(path, headers={"X-API-Key": READ_KEY})
+        assert response.status_code == 200
+        assert len(response.headers["X-Request-ID"]) == 32
+
+
+def test_key_configuration_fails_closed_and_reader_is_optional(tmp_path, monkeypatch):
+    monkeypatch.delenv("COMMERCE_API_KEY", raising=False)
+    monkeypatch.delenv("COMMERCE_READ_API_KEY", raising=False)
+    for key in [None, "", "   "]:
+        with pytest.raises(RuntimeError):
+            create_app(tmp_path / "invalid.db", key)
+    with pytest.raises(RuntimeError):
+        create_app(tmp_path / "invalid.db", KEY, KEY)
+    with TestClient(create_app(tmp_path / "manager.db", KEY, "")) as client:
+        assert client.get("/products", headers={"X-API-Key": READ_KEY}).status_code == 401
+        assert client.get("/products", headers={"X-API-Key": KEY}).status_code == 200
+
+
+def test_unexpected_failure_rolls_back_before_commit_and_logs_no_secret(api, monkeypatch, caplog):
+    client, db = api
+    pid = product(client)
+    original = service.order_detail
+    marker = "DO-NOT-LOG-REQUEST-OR-KEY"
+
+    def fail_before_return(conn, oid):
+        raise RuntimeError(marker)
+
+    monkeypatch.setattr(service, "order_detail", fail_before_return)
+    response = client.post("/orders?debug=" + marker, json=order(pid), headers={"X-Request-ID": marker})
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert response.json()["error"]["request_id"] == response.headers["X-Request-ID"]
+    assert marker not in response.text and response.headers["X-Request-ID"] != marker
+    application_logs = "\n".join(r.getMessage() for r in caplog.records if r.name == "app.main")
+    assert "route=/orders" in application_logs and "error_type=RuntimeError" in application_logs
+    assert marker not in application_logs and KEY not in application_logs
+    assert all(r.exc_info is None for r in caplog.records if r.name == "app.main")
+    monkeypatch.setattr(service, "order_detail", original)
+    assert client.get("/orders").json() == []
+    assert client.get(f"/products/{pid}").json()["available"] == 5
+    assert client.post("/orders", json=order(pid)).status_code == 201
+
+
+def test_response_failure_after_commit_retry_does_not_charge_twice(api, monkeypatch):
+    client, db = api
+    pid = product(client)
+    original = service.place_order
+    committed = []
+
+    def corrupt_response(database, data):
+        result = original(database, data)
+        committed.append(result["id"])
+        return {**result, "total_cents": "not-an-integer"}
+
+    monkeypatch.setattr(service, "place_order", corrupt_response)
+    assert client.post("/orders", json=order(pid)).status_code == 500
+    monkeypatch.setattr(service, "place_order", original)
+    retry = client.post("/orders", json=order(pid))
+    assert retry.status_code == 201 and retry.json()["id"] == committed[0]
+    assert client.get(f"/products/{pid}").json()["available"] == 4
+    assert len(client.get("/orders").json()) == 1
+
+
+def test_database_error_message_is_redacted(api, monkeypatch, caplog):
+    client, db = api
+    marker = "PRIVATE-DATABASE-ERROR-CONTENT"
+
+    def fail(*args):
+        raise sqlite3.OperationalError(marker)
+
+    monkeypatch.setattr(service, "list_products", fail)
+    response = client.get("/products")
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "DATABASE_ERROR"
+    assert response.json()["error"]["request_id"] == response.headers["X-Request-ID"]
+    assert marker not in response.text
+    assert marker not in "\n".join(r.getMessage() for r in caplog.records if r.name == "app.main")
 

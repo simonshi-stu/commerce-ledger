@@ -60,3 +60,7 @@ git remote -v
 ~~~
 
 HTTP 并发测试使用进程内 ASGI TestClient，真实路由与鉴权会执行，但没有 20 条真实网络连接。另一个 smoke_http 脚本负责验证真实本地 TCP/uvicorn 启动。两种证据各有边界，不能混称为生产压测。
+
+## 后续本地阶段
+
+阶段 3 已以 74011bd 保存只读核对与快照验证。阶段 4 增加两级共享凭据权限及故障边界，详见 09-security-boundaries.md 与 10-order-code-map.md。它们不改变此前 Docker 访问拒绝与待确定远端的状态；当前所有阶段仍待目标仓库确认后上传。

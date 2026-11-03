@@ -19,10 +19,11 @@ def main():
         environment = os.environ.copy()
         environment["COMMERCE_DB"] = str(Path(folder) / "http.db")
         environment["COMMERCE_API_KEY"] = "smoke-local-temporary-key"
+        environment["COMMERCE_READ_API_KEY"] = "smoke-local-temporary-read-key"
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         process = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "app.main:create_app", "--factory",
-             "--host", "127.0.0.1", "--port", str(port)],
+             "--host", "127.0.0.1", "--port", str(port), "--no-access-log"],
             cwd=root, env=environment, stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE, creationflags=flags,
         )
@@ -41,6 +42,7 @@ def main():
                         raise RuntimeError("Local server did not become ready")
                     time.sleep(0.1)
                 assert response.json()["status"] == "ok"
+                assert len(response.headers["X-Request-ID"]) == 32
                 assert client.get("/docs").status_code == 200
                 spec = client.get("/openapi.json").json()
                 assert "/orders" in spec["paths"]
@@ -50,7 +52,11 @@ def main():
                 assert client.get("/products", headers={"X-API-Key": "wrong"}).status_code == 401
                 audit = client.get("/integrity").json()
                 assert audit["healthy"] and audit["products_checked"] == 1
-                print("HTTP smoke passed: health, docs, OpenAPI, product create/read, authentication, reconciliation")
+                reader = {"X-API-Key": environment["COMMERCE_READ_API_KEY"]}
+                assert client.get("/products", headers=reader).status_code == 200
+                assert client.post("/products", headers=reader, json={
+                    "sku": "BLOCKED", "name": "blocked", "price_cents": 100}).status_code == 403
+                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, authentication, reconciliation, reader restrictions, request IDs")
         finally:
             process.terminate()
             try:
