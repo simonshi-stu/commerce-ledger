@@ -17,6 +17,9 @@ def main():
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
         environment = os.environ.copy()
+        # This smoke check owns a disposable SQLite database. A parent's
+        # PostgreSQL URL must not redirect it to an unrelated real database.
+        environment.pop("COMMERCE_DATABASE_URL", None)
         environment["COMMERCE_DB"] = str(Path(folder) / "http.db")
         environment["COMMERCE_API_KEY"] = "smoke-local-temporary-key"
         environment["COMMERCE_READ_API_KEY"] = "smoke-local-temporary-read-key"
@@ -49,6 +52,11 @@ def main():
                 created = client.post("/products", json={"sku": "HTTP-001", "name": "synthetic", "price_cents": 100})
                 assert created.status_code == 201, created.text
                 assert client.get("/products").json()[0]["available"] == 0
+                oversized = 1 << 63
+                assert client.get(f"/products/{oversized}").status_code == 422
+                assert client.get("/products", params={"offset": oversized}).status_code == 422
+                assert client.post("/orders", json={"request_key": "http-overflow-001", "items": [
+                    {"product_id": oversized, "quantity": 1}]}).status_code == 422
                 assert client.get("/products", headers={"X-API-Key": "wrong"}).status_code == 401
                 audit = client.get("/integrity").json()
                 assert audit["healthy"] and audit["products_checked"] == 1
@@ -56,7 +64,7 @@ def main():
                 assert client.get("/products", headers=reader).status_code == 200
                 assert client.post("/products", headers=reader, json={
                     "sku": "BLOCKED", "name": "blocked", "price_cents": 100}).status_code == 403
-                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, authentication, reconciliation, reader restrictions, request IDs")
+                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, integer bounds, authentication, reconciliation, reader restrictions, request IDs")
         finally:
             process.terminate()
             try:
