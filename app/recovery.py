@@ -1,5 +1,6 @@
 """Verified SQLite snapshots and recovery rehearsal; never replace an existing file."""
 import argparse
+from functools import lru_cache
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,31 @@ from .service import check_integrity
 
 class VerificationError(ValueError):
     pass
+
+
+def schema_contract(connection):
+    """Return application DDL, excluding SQLite-owned bookkeeping objects.
+
+    Compare SQL verbatim rather than deleting whitespace, which could change
+    quoted literals. This intentionally rejects independently rewritten schemas,
+    even when their author believes them to be semantically equivalent.
+    """
+    return tuple(tuple(row) for row in connection.execute(
+        "SELECT type,name,tbl_name,sql FROM sqlite_schema "
+        "WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name"
+    ))
+
+
+@lru_cache(maxsize=1)
+def expected_schema_contract():
+    """Build the reference from this release's trusted migrations, never input DDL."""
+    connection = sqlite3.connect(":memory:")
+    try:
+        for _, migration in MIGRATIONS:
+            connection.executescript(migration.read_text(encoding="utf-8"))
+        return schema_contract(connection)
+    finally:
+        connection.close()
 
 
 def publish_new_file(staged, output):
@@ -31,6 +57,8 @@ def verify_database(path):
         version = connection.execute("PRAGMA user_version").fetchone()[0]
         if version != MIGRATIONS[-1][0]:
             raise VerificationError("database version must match this application; migrate a separate copy first")
+        if schema_contract(connection) != expected_schema_contract():
+            raise VerificationError("database schema does not match this application; review a separate copy first")
         if [row[0] for row in connection.execute("PRAGMA integrity_check")] != ["ok"]:
             raise VerificationError("SQLite integrity check failed")
         if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:

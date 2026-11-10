@@ -1,4 +1,6 @@
-> **2026-11-08 分支阶段交付：** 新增订单与 SALE/CANCEL 流水逐项核对，防止总数相等掩盖错误关联，并阻止异常备份/恢复文件发布。SQLite 153 项通过（新增 49 项），本次与 requirements.txt 固定版本一致。完整说明见 [第 18 章](docs/18-ledger-semantics.md)。
+> **2026-11-11 恢复保护：** verify / backup / restore 现在核对当前版本完整应用结构，拒绝缺失或失效的历史保护触发器、被削弱的表约束及未识别的应用结构。181 项 SQLite 测试通过（本次新增 28 项），业务、迁移、恢复演示和 localhost HTTP 检查通过。严格结构匹配的兼容性限制及复现方法见 [第 20 章](docs/20-recovery-schema-contract.md)。PostgreSQL 仍未实测。
+
+> **2026-11-08 分支阶段交付：** 新增订单与 SALE/CANCEL 流水逐项核对，防止总数相等掩盖错误关联，并阻止异常备份/恢复文件发布。当时 SQLite 153 项通过（新增 49 项），与 requirements.txt 固定版本一致。完整说明见 [第 18 章](docs/18-ledger-semantics.md)。
 
 > **2026-11-06 修复记录（已纳入本次阶段提交）：** 基于 PR #1 的 2a1bc4c，104 项 SQLite 测试全部通过，含 37 项新增回归。修正整数越界 500，增加整单取消回滚和并发覆盖。以下保留原 PR 基线说明；当前验证与边界见 [第 17 章](docs/17-cloud-validation.md)。
 
@@ -8,7 +10,7 @@
 
 参考酒店项目的“资源管理→占用资源→完成业务→报表”思路，独立编写代码，没有复制参考代码、图片、SQL 数据或报告。演示商品和库存全部为**模拟数据**。金额统一为人民币分。
 
-**原 PR 基线验证（67 项；当前阶段为 153 项，见[本次复验](docs/19-stage-publication.md)）：服务层与 HTTP 层各验证 20 人争抢最后一件，新增可验证备份与恢复演练。** [基础验证记录](docs/05-verification.md) · [基线发布复验](docs/12-publication-verification.md) · [恢复阶段验证](docs/14-recovery-verification.md)
+**原 PR 基线验证（67 项；当前阶段为 181 项，见[恢复结构验证](docs/20-recovery-schema-contract.md)）：服务层与 HTTP 层各验证 20 人争抢最后一件，新增可验证备份与恢复演练。** [基础验证记录](docs/05-verification.md) · [基线发布复验](docs/12-publication-verification.md) · [恢复阶段验证](docs/14-recovery-verification.md)
 
 项目仓库：[simonshi-stu/commerce-ledger](https://github.com/simonshi-stu/commerce-ledger)。
 
