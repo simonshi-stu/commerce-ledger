@@ -4,7 +4,12 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 Sku = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Z0-9][A-Z0-9_-]{0,39}$")]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 Key = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{8,80}$")]
-PositiveId = Annotated[int, Field(strict=True, gt=0)]
+# SQLite INTEGER and PostgreSQL BIGINT share the same signed 64-bit bound.
+# Reject larger Python ints at the API boundary, before driver adaptation.
+MAX_DB_INTEGER = (1 << 63) - 1
+PositiveId = Annotated[int, Field(
+    strict=True, gt=0, le=MAX_DB_INTEGER,
+    json_schema_extra={"x-maximum-integer": str(MAX_DB_INTEGER)})]
 Price = Annotated[int, Field(strict=True, ge=1, le=100000000)]
 
 
@@ -101,6 +106,14 @@ class OrderMismatch(BaseModel):
     item_count: int
 
 
+class LedgerMismatch(BaseModel):
+    order_id: str
+    product_id: int
+    kind: Literal["SALE", "CANCEL"]
+    expected_delta: int | None
+    actual_delta: int | None
+
+
 class IntegrityRead(BaseModel):
     healthy: bool
     products_checked: int
@@ -109,5 +122,7 @@ class IntegrityRead(BaseModel):
     order_mismatch_count: int
     stock_mismatches: list[StockMismatch]
     order_mismatches: list[OrderMismatch]
+    ledger_mismatch_count: int
+    ledger_mismatches: list[LedgerMismatch]
     truncated: bool
 

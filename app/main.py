@@ -4,20 +4,23 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import sqlite3
 from uuid import uuid4
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Query, Request, Security
+from fastapi import Depends, FastAPI, Path as PathParameter, Query, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .db import Database
-from .schemas import (Adjustment, OrderCreate, ProductCreate, ProductUpdate,
+from .schemas import (MAX_DB_INTEGER, Adjustment, OrderCreate, ProductCreate, ProductUpdate,
                       ProductRead, MovementRead, OrderSummary, OrderRead, IntegrityRead)
 from . import service
 from .security import KeyPolicy
 
 ROOT = Path(__file__).resolve().parent.parent
 log = logging.getLogger(__name__)
+ProductPathId = Annotated[int, PathParameter(
+    gt=0, le=MAX_DB_INTEGER, json_schema_extra={"x-maximum-integer": str(MAX_DB_INTEGER)})]
 
 
 def create_app(db_path=None, api_key=None, read_api_key=None):
@@ -96,28 +99,30 @@ def create_app(db_path=None, api_key=None, read_api_key=None):
         return service.check_integrity(db, limit)
 
     @app.get("/products", response_model=list[ProductRead])
-    def products(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+    def products(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0, le=MAX_DB_INTEGER,
+                        json_schema_extra={"x-maximum-integer": str(MAX_DB_INTEGER)})):
         return service.list_products(db, limit, offset)
 
     @app.get("/products/{product_id}", response_model=ProductRead)
-    def product_get(product_id: int):
+    def product_get(product_id: ProductPathId):
         with db.connection() as c:
             return service.require_product(c, product_id)
 
     @app.put("/products/{product_id}", response_model=ProductRead)
-    def product_update(product_id: int, data: ProductUpdate):
+    def product_update(product_id: ProductPathId, data: ProductUpdate):
         return service.update_product(db, product_id, data)
 
     @app.delete("/products/{product_id}", response_model=ProductRead)
-    def product_delete(product_id: int):
+    def product_delete(product_id: ProductPathId):
         return service.update_product(db, product_id)
 
     @app.post("/products/{product_id}/stock-adjustments", status_code=201, response_model=MovementRead)
-    def stock_adjust(product_id: int, data: Adjustment):
+    def stock_adjust(product_id: ProductPathId, data: Adjustment):
         return service.adjust_stock(db, product_id, data)
 
     @app.get("/products/{product_id}/movements", response_model=list[MovementRead])
-    def movements(product_id: int, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+    def movements(product_id: ProductPathId, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0, le=MAX_DB_INTEGER,
+                        json_schema_extra={"x-maximum-integer": str(MAX_DB_INTEGER)})):
         with db.connection() as c:
             service.require_product(c, product_id)
             return [dict(r) for r in c.execute("SELECT * FROM stock_movements WHERE product_id=? ORDER BY id LIMIT ? OFFSET ?",
@@ -128,7 +133,8 @@ def create_app(db_path=None, api_key=None, read_api_key=None):
         return service.place_order(db, data)
 
     @app.get("/orders", response_model=list[OrderSummary])
-    def orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+    def orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0, le=MAX_DB_INTEGER,
+                        json_schema_extra={"x-maximum-integer": str(MAX_DB_INTEGER)})):
         with db.connection() as c:
             return [dict(r) for r in c.execute("SELECT id,status,total_cents,created_at FROM orders ORDER BY created_at,id LIMIT ? OFFSET ?",
                                                (limit, offset))]
