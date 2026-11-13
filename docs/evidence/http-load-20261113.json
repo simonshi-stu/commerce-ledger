@@ -1,0 +1,266 @@
+{
+  "recorded_at_utc": "2026-11-13T10:44:10.475193+00:00",
+  "scope": "synthetic_loopback_single_uvicorn_process_sqlite",
+  "python": "3.12.14",
+  "sqlite": "3.53.1",
+  "concurrency_levels": [
+    1,
+    5,
+    20
+  ],
+  "requests_per_phase": 60,
+  "claim": "bounded correctness and observed latency, not production capacity or anti-DDoS",
+  "phases": [
+    {
+      "concurrency": 1,
+      "requests": 60,
+      "wall_seconds": 0.2635,
+      "completed_requests_per_second": 227.68,
+      "latency_ms": {
+        "p50": 3.26,
+        "p95": 9.92,
+        "p99": 24.74
+      },
+      "status_counts": {
+        "201": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 60,
+      "scenario": "unique_orders",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 1,
+      "requests": 60,
+      "wall_seconds": 0.1891,
+      "completed_requests_per_second": 317.25,
+      "latency_ms": {
+        "p50": 2.97,
+        "p95": 4.08,
+        "p99": 5.97
+      },
+      "status_counts": {
+        "201": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 1,
+      "scenario": "same_key_retries",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 1,
+      "requests": 60,
+      "wall_seconds": 0.1652,
+      "completed_requests_per_second": 363.26,
+      "latency_ms": {
+        "p50": 2.59,
+        "p95": 3.43,
+        "p99": 6.17
+      },
+      "status_counts": {
+        "201": 1,
+        "409": 59
+      },
+      "error_codes": {
+        "INSUFFICIENT_STOCK": 59
+      },
+      "distinct_returned_order_ids": 1,
+      "scenario": "last_unit",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 1,
+      "requests": 60,
+      "wall_seconds": 0.1847,
+      "completed_requests_per_second": 324.9,
+      "latency_ms": {
+        "p50": 2.51,
+        "p95": 6.79,
+        "p99": 7.31
+      },
+      "status_counts": {
+        "200": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 1,
+      "scenario": "repeated_cancel",
+      "remaining_stock": 1,
+      "passed": true
+    },
+    {
+      "concurrency": 5,
+      "requests": 60,
+      "wall_seconds": 0.1915,
+      "completed_requests_per_second": 313.29,
+      "latency_ms": {
+        "p50": 8.8,
+        "p95": 41.68,
+        "p99": 91.82
+      },
+      "status_counts": {
+        "201": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 60,
+      "scenario": "unique_orders",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 5,
+      "requests": 60,
+      "wall_seconds": 0.1444,
+      "completed_requests_per_second": 415.63,
+      "latency_ms": {
+        "p50": 8.97,
+        "p95": 17.35,
+        "p99": 91.44
+      },
+      "status_counts": {
+        "201": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 1,
+      "scenario": "same_key_retries",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 5,
+      "requests": 60,
+      "wall_seconds": 0.1592,
+      "completed_requests_per_second": 377.0,
+      "latency_ms": {
+        "p50": 7.24,
+        "p95": 31.93,
+        "p99": 87.13
+      },
+      "status_counts": {
+        "409": 59,
+        "201": 1
+      },
+      "error_codes": {
+        "INSUFFICIENT_STOCK": 59
+      },
+      "distinct_returned_order_ids": 1,
+      "scenario": "last_unit",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 5,
+      "requests": 60,
+      "wall_seconds": 0.1239,
+      "completed_requests_per_second": 484.12,
+      "latency_ms": {
+        "p50": 6.95,
+        "p95": 18.7,
+        "p99": 89.16
+      },
+      "status_counts": {
+        "200": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 1,
+      "scenario": "repeated_cancel",
+      "remaining_stock": 1,
+      "passed": true
+    },
+    {
+      "concurrency": 20,
+      "requests": 60,
+      "wall_seconds": 0.6952,
+      "completed_requests_per_second": 86.31,
+      "latency_ms": {
+        "p50": 59.04,
+        "p95": 455.93,
+        "p99": 683.91
+      },
+      "status_counts": {
+        "201": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 60,
+      "scenario": "unique_orders",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 20,
+      "requests": 60,
+      "wall_seconds": 0.2074,
+      "completed_requests_per_second": 289.25,
+      "latency_ms": {
+        "p50": 38.87,
+        "p95": 163.09,
+        "p99": 193.77
+      },
+      "status_counts": {
+        "201": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 1,
+      "scenario": "same_key_retries",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 20,
+      "requests": 60,
+      "wall_seconds": 0.2127,
+      "completed_requests_per_second": 282.07,
+      "latency_ms": {
+        "p50": 24.46,
+        "p95": 149.92,
+        "p99": 202.28
+      },
+      "status_counts": {
+        "409": 59,
+        "201": 1
+      },
+      "error_codes": {
+        "INSUFFICIENT_STOCK": 59
+      },
+      "distinct_returned_order_ids": 1,
+      "scenario": "last_unit",
+      "remaining_stock": 0,
+      "passed": true
+    },
+    {
+      "concurrency": 20,
+      "requests": 60,
+      "wall_seconds": 0.1834,
+      "completed_requests_per_second": 327.22,
+      "latency_ms": {
+        "p50": 23.56,
+        "p95": 127.5,
+        "p99": 168.32
+      },
+      "status_counts": {
+        "200": 60
+      },
+      "error_codes": {},
+      "distinct_returned_order_ids": 1,
+      "scenario": "repeated_cancel",
+      "remaining_stock": 1,
+      "passed": true
+    }
+  ],
+  "integrity": {
+    "healthy": true,
+    "products_checked": 12,
+    "orders_checked": 189,
+    "stock_mismatch_count": 0,
+    "order_mismatch_count": 0,
+    "stock_mismatches": [],
+    "order_mismatches": [],
+    "ledger_mismatch_count": 0,
+    "ledger_mismatches": [],
+    "truncated": false
+  },
+  "passed": true,
+  "server_stopped": true
+}
