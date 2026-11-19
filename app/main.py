@@ -12,8 +12,9 @@ from fastapi.responses import JSONResponse
 
 from .db import Database
 from .schemas import (Adjustment, OrderCreate, ProductCreate, ProductUpdate,
-                      ProductRead, MovementRead, OrderSummary, OrderRead, IntegrityRead)
-from . import service
+                      ProductRead, MovementRead, OrderSummary, OrderRead, IntegrityRead,
+                      ReservationCreate, ReservationRead, SimulatedPayment, PaymentReceipt)
+from . import reservations, service
 from .security import KeyPolicy
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -145,6 +146,23 @@ def create_app(db_path=None, api_key=None, read_api_key=None):
     @app.post("/orders/{order_id}/fulfill", response_model=OrderRead)
     def order_fulfill(order_id: str):
         return service.transition_order(db, order_id, "FULFILLED")
+
+    @app.post("/reservations", status_code=201, response_model=ReservationRead)
+    def reservation_create(data: ReservationCreate):
+        return reservations.reserve(db, data)
+
+    @app.post("/reservations/expire")
+    def reservation_expire(limit: int = Query(50, ge=1, le=100)):
+        return reservations.expire_due(db, limit)
+
+    @app.get("/reservations/{reservation_id}", response_model=ReservationRead)
+    def reservation_get(reservation_id: str):
+        with db.connection() as c:
+            return reservations.get(c, reservation_id)
+
+    @app.post("/reservations/{reservation_id}/simulated-payment", response_model=PaymentReceipt)
+    def simulated_payment(reservation_id: str, data: SimulatedPayment):
+        return reservations.settle(db, reservation_id, data)
 
     return app
 

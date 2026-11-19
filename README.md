@@ -137,3 +137,7 @@ COMMERCE_API_KEY 为必填管理凭据；可选 COMMERCE_READ_API_KEY 只能读�
 ## 真实旧库升级演示（API 0.5.0 / DB v2）
 
 运行 python -m scripts.migration_demo，在临时旧库验证 v1 到 v2 升级、数据保留、备份可读、终态保护和重复执行。数据库现在拒绝改写历史明细与库存流水；正常取消追加返还流水。当前没有 PostgreSQL 实现或实测；本次源码发布不包含运行数据库。
+
+## 实验：限时库存预留与模拟付款
+
+在原有直接下单 API 之外，新增单品限时预留、模拟付款、批量超时释放和对账验证。现有 SQLite 文件需先备份升级到 v3；不是支付网关集成。接口与云端验证见 [阶段说明](docs/13-reservation-stage.md)。

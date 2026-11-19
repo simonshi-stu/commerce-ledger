@@ -111,3 +111,33 @@ class IntegrityRead(BaseModel):
     order_mismatches: list[OrderMismatch]
     truncated: bool
 
+
+
+
+class ReservationCreate(OrderItem):
+    request_key: Key
+    ttl_seconds: Annotated[int, Field(strict=True, ge=1, le=3600)] = 900
+
+
+class SimulatedPayment(Input):
+    event_id: Key
+    amount_cents: Annotated[int, Field(strict=True, gt=0, le=1000000000000)]
+
+
+class ReservationRead(BaseModel):
+    id: str
+    product_id: int
+    quantity: int
+    unit_price_cents: int
+    ttl_seconds: int
+    expires_at: int
+    state: Literal["HELD", "PAID", "EXPIRED"]
+    order_id: str | None
+
+
+class PaymentReceipt(BaseModel):
+    event_id: str
+    reservation_id: str
+    amount_cents: int
+    outcome: Literal["PAID", "ALREADY_PAID", "LATE_PAYMENT"]
+    order_id: str | None

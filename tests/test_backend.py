@@ -251,8 +251,8 @@ def test_initial_schema_migration_and_future_version_guard(tmp_path):
     db.initialize()
     db.initialize()
     with db.connection() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
-        conn.execute("PRAGMA user_version=3")
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        conn.execute("PRAGMA user_version=4")
     with pytest.raises(RuntimeError):
         db.initialize()
 
@@ -506,7 +506,7 @@ def make_legacy_v1_database(path):
     return db, created
 
 
-def test_migration_v1_to_v2_preserves_existing_business_data(tmp_path):
+def test_migration_v1_to_v3_preserves_existing_business_data(tmp_path):
     db, before = make_legacy_v1_database(tmp_path / "legacy.db")
     with db.connection() as conn:
         inventory_before = tuple(conn.execute("SELECT * FROM inventory").fetchone())
@@ -514,7 +514,7 @@ def test_migration_v1_to_v2_preserves_existing_business_data(tmp_path):
     db.initialize()
     db.initialize()
     with db.connection() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
         assert service.order_detail(conn, before["id"]) == before
         assert tuple(conn.execute("SELECT * FROM inventory").fetchone()) == inventory_before
         assert [tuple(row) for row in conn.execute("SELECT * FROM stock_movements ORDER BY id")] == movements_before
@@ -577,7 +577,7 @@ def test_migration_command_backs_up_old_data_and_is_repeatable(tmp_path):
     from pathlib import Path
     db, before = make_legacy_v1_database(tmp_path / "command.db")
     result = migrate_database(db.path)
-    assert result["changed"] and inspect_version(db.path) == 2
+    assert result["changed"] and inspect_version(db.path) == 3
     assert inspect_version(result["backup"]) == 1
     with Database(result["backup"]).connection() as conn:
         assert service.order_detail(conn, before["id"]) == before
@@ -591,10 +591,10 @@ def test_version_check_does_not_create_files_or_overwrite_future_database(tmp_pa
     assert inspect_version(missing) == 0 and not missing.exists()
     future = tmp_path / "future.db"
     with sqlite3.connect(future) as conn:
-        conn.execute("PRAGMA user_version=3")
+        conn.execute("PRAGMA user_version=4")
     with pytest.raises(RuntimeError):
         migrate_database(future)
-    assert inspect_version(future) == 3
+    assert inspect_version(future) == 4
     assert list(tmp_path.glob("*.bak")) == []
 
 

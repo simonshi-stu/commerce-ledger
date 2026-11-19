@@ -6,6 +6,7 @@ import sqlite3
 MIGRATIONS = (
     (1, Path(__file__).with_name("schema.sql")),
     (2, Path(__file__).with_name("migrations") / "002_history_guards.sql"),
+    (3, Path(__file__).with_name("migrations") / "003_reservations.sql"),
 )
 
 
