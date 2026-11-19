@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Commerce Ledger · 本地教学后端",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "paths": {
     "/health": {
@@ -95,7 +95,9 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
               "minimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "default": 0,
               "title": "Offset"
             }
@@ -192,6 +194,9 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
+              "exclusiveMinimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "title": "Product Id"
             }
           }
@@ -234,6 +239,9 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
+              "exclusiveMinimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "title": "Product Id"
             }
           }
@@ -286,6 +294,9 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
+              "exclusiveMinimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "title": "Product Id"
             }
           }
@@ -330,6 +341,9 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
+              "exclusiveMinimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "title": "Product Id"
             }
           }
@@ -384,6 +398,9 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
+              "exclusiveMinimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "title": "Product Id"
             }
           },
@@ -405,7 +422,9 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
               "minimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "default": 0,
               "title": "Offset"
             }
@@ -508,7 +527,9 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
               "minimum": 0,
+              "x-maximum-integer": "9223372036854775807",
               "default": 0,
               "title": "Offset"
             }
@@ -673,6 +694,192 @@
           }
         }
       }
+    },
+    "/reservations": {
+      "post": {
+        "summary": "Reservation Create",
+        "operationId": "reservation_create_reservations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/reservations/expire": {
+      "post": {
+        "summary": "Reservation Expire",
+        "operationId": "reservation_expire_reservations_expire_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reservations/{reservation_id}": {
+      "get": {
+        "summary": "Reservation Get",
+        "operationId": "reservation_get_reservations__reservation_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reservation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reservation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reservations/{reservation_id}/simulated-payment": {
+      "post": {
+        "summary": "Simulated Payment",
+        "operationId": "simulated_payment_reservations__reservation_id__simulated_payment_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reservation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reservation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulatedPayment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -755,6 +962,17 @@
             "type": "array",
             "title": "Order Mismatches"
           },
+          "ledger_mismatch_count": {
+            "type": "integer",
+            "title": "Ledger Mismatch Count"
+          },
+          "ledger_mismatches": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerMismatch"
+            },
+            "type": "array",
+            "title": "Ledger Mismatches"
+          },
           "truncated": {
             "type": "boolean",
             "title": "Truncated"
@@ -769,9 +987,62 @@
           "order_mismatch_count",
           "stock_mismatches",
           "order_mismatches",
+          "ledger_mismatch_count",
+          "ledger_mismatches",
           "truncated"
         ],
         "title": "IntegrityRead"
+      },
+      "LedgerMismatch": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "product_id": {
+            "type": "integer",
+            "title": "Product Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SALE",
+              "CANCEL"
+            ],
+            "title": "Kind"
+          },
+          "expected_delta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Delta"
+          },
+          "actual_delta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Delta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "product_id",
+          "kind",
+          "expected_delta",
+          "actual_delta"
+        ],
+        "title": "LedgerMismatch"
       },
       "MovementRead": {
         "properties": {
@@ -850,8 +1121,10 @@
         "properties": {
           "product_id": {
             "type": "integer",
+            "maximum": 9.223372036854776e+18,
             "exclusiveMinimum": 0.0,
-            "title": "Product Id"
+            "title": "Product Id",
+            "x-maximum-integer": "9223372036854775807"
           },
           "quantity": {
             "type": "integer",
@@ -993,6 +1266,51 @@
         ],
         "title": "OrderSummary"
       },
+      "PaymentReceipt": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "reservation_id": {
+            "type": "string",
+            "title": "Reservation Id"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "PAID",
+              "ALREADY_PAID",
+              "LATE_PAYMENT"
+            ],
+            "title": "Outcome"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "reservation_id",
+          "amount_cents",
+          "outcome",
+          "order_id"
+        ],
+        "title": "PaymentReceipt"
+      },
       "ProductCreate": {
         "properties": {
           "sku": {
@@ -1086,6 +1404,125 @@
           "price_cents"
         ],
         "title": "ProductUpdate"
+      },
+      "ReservationCreate": {
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "maximum": 9.223372036854776e+18,
+            "exclusiveMinimum": 0.0,
+            "title": "Product Id",
+            "x-maximum-integer": "9223372036854775807"
+          },
+          "quantity": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Quantity"
+          },
+          "request_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{8,80}$",
+            "title": "Request Key"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 1.0,
+            "title": "Ttl Seconds",
+            "default": 900
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_id",
+          "quantity",
+          "request_key"
+        ],
+        "title": "ReservationCreate"
+      },
+      "ReservationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "product_id": {
+            "type": "integer",
+            "title": "Product Id"
+          },
+          "quantity": {
+            "type": "integer",
+            "title": "Quantity"
+          },
+          "unit_price_cents": {
+            "type": "integer",
+            "title": "Unit Price Cents"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "title": "Ttl Seconds"
+          },
+          "expires_at": {
+            "type": "integer",
+            "title": "Expires At"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "HELD",
+              "PAID",
+              "EXPIRED"
+            ],
+            "title": "State"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "quantity",
+          "unit_price_cents",
+          "ttl_seconds",
+          "expires_at",
+          "state",
+          "order_id"
+        ],
+        "title": "ReservationRead"
+      },
+      "SimulatedPayment": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{8,80}$",
+            "title": "Event Id"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "maximum": 1000000000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Amount Cents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "event_id",
+          "amount_cents"
+        ],
+        "title": "SimulatedPayment"
       },
       "StockMismatch": {
         "properties": {

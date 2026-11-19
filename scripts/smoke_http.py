@@ -10,6 +10,35 @@ import time
 import httpx
 
 
+def verify_reservation_walkthrough(client, product_id):
+    created = client.post(f"/products/{product_id}/stock-adjustments", json={
+        "request_key": "smoke-reservation-stock", "delta": 2, "reason": "synthetic smoke"
+    })
+    assert created.status_code == 201, created.text
+    outcomes = []
+    for label, ttl in (("paid", 30), ("expired", 1)):
+        response = client.post("/reservations", json={"request_key": f"smoke-hold-{label}",
+                               "product_id": product_id, "quantity": 1, "ttl_seconds": ttl})
+        assert response.status_code == 201, response.text
+        held = response.json()
+        assert held["state"] == "HELD"
+        if label == "expired":
+            time.sleep(max(0, held["expires_at"] - time.time()) + 0.05)
+            assert client.post("/reservations/expire").json() == {"released": 1}
+        path = f"/reservations/{held['id']}/simulated-payment"
+        event = {"event_id": f"smoke-payment-{label}", "amount_cents": 100}
+        payment = client.post(path, json=event)
+        assert payment.status_code == 200, payment.text
+        receipt = payment.json()
+        assert client.post(path, json=event).json() == receipt
+        outcomes.append(receipt["outcome"])
+    assert outcomes == ["PAID", "LATE_PAYMENT"]
+    assert len(client.get("/orders").json()) == 1
+    assert client.get(f"/products/{product_id}").json()["available"] == 1
+    audit = client.get("/integrity").json()
+    assert audit["healthy"] and audit["ledger_mismatch_count"] == 0
+
+
 def main():
     root = Path(__file__).resolve().parent.parent
     with TemporaryDirectory(prefix="commerce-http-") as folder:
@@ -17,6 +46,9 @@ def main():
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
         environment = os.environ.copy()
+        # This smoke check owns a disposable SQLite database. A parent's
+        # PostgreSQL URL must not redirect it to an unrelated real database.
+        environment.pop("COMMERCE_DATABASE_URL", None)
         environment["COMMERCE_DB"] = str(Path(folder) / "http.db")
         environment["COMMERCE_API_KEY"] = "smoke-local-temporary-key"
         environment["COMMERCE_READ_API_KEY"] = "smoke-local-temporary-read-key"
@@ -49,6 +81,11 @@ def main():
                 created = client.post("/products", json={"sku": "HTTP-001", "name": "synthetic", "price_cents": 100})
                 assert created.status_code == 201, created.text
                 assert client.get("/products").json()[0]["available"] == 0
+                oversized = 1 << 63
+                assert client.get(f"/products/{oversized}").status_code == 422
+                assert client.get("/products", params={"offset": oversized}).status_code == 422
+                assert client.post("/orders", json={"request_key": "http-overflow-001", "items": [
+                    {"product_id": oversized, "quantity": 1}]}).status_code == 422
                 assert client.get("/products", headers={"X-API-Key": "wrong"}).status_code == 401
                 audit = client.get("/integrity").json()
                 assert audit["healthy"] and audit["products_checked"] == 1
@@ -56,7 +93,8 @@ def main():
                 assert client.get("/products", headers=reader).status_code == 200
                 assert client.post("/products", headers=reader, json={
                     "sku": "BLOCKED", "name": "blocked", "price_cents": 100}).status_code == 403
-                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, authentication, reconciliation, reader restrictions, request IDs")
+                verify_reservation_walkthrough(client, created.json()["id"])
+                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, integer bounds, authentication, reconciliation, reader restrictions, request IDs, reservation payment and expiry walkthrough")
         finally:
             process.terminate()
             try:

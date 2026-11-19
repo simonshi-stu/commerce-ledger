@@ -6,4 +6,6 @@ data/*.db*
 .env.*
 !.env.example
 .test-tmp/
+backups/
+.commerce-snapshot-*/
 
