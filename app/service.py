@@ -138,24 +138,55 @@ def check_integrity(db, limit):
     """
     order_query = """
         SELECT o.id AS order_id,o.total_cents,
-               COALESCE(SUM(i.quantity*i.unit_price_cents),0) AS item_total_cents,
+               COALESCE(SUM(CAST(i.quantity AS BIGINT)*i.unit_price_cents),0) AS item_total_cents,
                COUNT(i.product_id) AS item_count
         FROM orders o LEFT JOIN order_items i ON i.order_id=o.id
         GROUP BY o.id,o.total_cents
-        HAVING COUNT(i.product_id)=0 OR o.total_cents<>COALESCE(SUM(i.quantity*i.unit_price_cents),0)
+        HAVING COUNT(i.product_id)=0 OR o.total_cents<>COALESCE(SUM(CAST(i.quantity AS BIGINT)*i.unit_price_cents),0)
+    """
+    # Balance agreement alone cannot prove that a movement belongs to the
+    # correct order. Each line has one SALE, and only cancelled lines have a
+    # CANCEL. Also detect orphan/extra movements, including balanced bad imports.
+    # All three reconciliations run inside the same read-only snapshot below.
+    ledger_query = """
+        WITH expected AS (
+            SELECT i.order_id,i.product_id,'SALE' AS kind,
+                   -CAST(i.quantity AS BIGINT) AS expected_delta
+            FROM order_items i
+            UNION ALL
+            SELECT i.order_id,i.product_id,'CANCEL' AS kind,
+                   CAST(i.quantity AS BIGINT) AS expected_delta
+            FROM order_items i JOIN orders o ON o.id=i.order_id
+            WHERE o.status='CANCELLED'
+        )
+        SELECT e.order_id,e.product_id,e.kind,e.expected_delta,
+               m.delta AS actual_delta
+        FROM expected e LEFT JOIN stock_movements m
+          ON m.product_id=e.product_id AND m.kind=e.kind AND m.reference=e.order_id
+        WHERE m.id IS NULL OR m.delta<>e.expected_delta
+        UNION ALL
+        SELECT m.reference AS order_id,m.product_id,m.kind,
+               CAST(NULL AS BIGINT) AS expected_delta,m.delta AS actual_delta
+        FROM stock_movements m LEFT JOIN expected e
+          ON e.product_id=m.product_id AND e.kind=m.kind AND e.order_id=m.reference
+        WHERE m.kind IN ('SALE','CANCEL') AND e.order_id IS NULL
     """
     with db.read_snapshot() as c:
         products = c.execute("SELECT COUNT(*) FROM products").fetchone()[0]
         orders = c.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
-        stock_count = c.execute("SELECT COUNT(*) FROM (" + stock_query + ")").fetchone()[0]
-        order_count = c.execute("SELECT COUNT(*) FROM (" + order_query + ")").fetchone()[0]
+        stock_count = c.execute("SELECT COUNT(*) FROM (" + stock_query + ") AS stock_mismatches").fetchone()[0]
+        order_count = c.execute("SELECT COUNT(*) FROM (" + order_query + ") AS order_mismatches").fetchone()[0]
+        ledger_count = c.execute("SELECT COUNT(*) FROM (" + ledger_query + ") AS ledger_mismatches").fetchone()[0]
         stocks = [dict(row) for row in c.execute(stock_query + " ORDER BY p.id LIMIT ?", (limit,))]
         amounts = [dict(row) for row in c.execute(order_query + " ORDER BY o.id LIMIT ?", (limit,))]
+        ledger = [dict(row) for row in c.execute(
+            "SELECT * FROM (" + ledger_query + ") AS ledger_mismatches ORDER BY order_id,product_id,kind LIMIT ?", (limit,))]
         return {
-            "healthy": stock_count == 0 and order_count == 0,
+            "healthy": stock_count == 0 and order_count == 0 and ledger_count == 0,
             "products_checked": products, "orders_checked": orders,
             "stock_mismatch_count": stock_count, "order_mismatch_count": order_count,
             "stock_mismatches": stocks, "order_mismatches": amounts,
-            "truncated": stock_count > limit or order_count > limit,
+            "ledger_mismatch_count": ledger_count, "ledger_mismatches": ledger,
+            "truncated": stock_count > limit or order_count > limit or ledger_count > limit,
         }
 

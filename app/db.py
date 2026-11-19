@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
+from urllib.parse import quote
 
 MIGRATIONS = (
     (1, Path(__file__).with_name("schema.sql")),
@@ -10,17 +11,25 @@ MIGRATIONS = (
 
 
 class Database:
-    def __init__(self, path):
+    def __init__(self, path, read_only=False):
         self.path = str(path)
+        self.read_only = read_only
 
     def connect(self):
-        connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+        if self.read_only:
+            uri = "file:" + quote(Path(self.path).resolve().as_posix(), safe="/:") + "?mode=ro"
+            connection = sqlite3.connect(uri, uri=True, timeout=5, isolation_level=None)
+            connection.execute("PRAGMA query_only=ON")
+        else:
+            connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys=ON")
         connection.execute("PRAGMA busy_timeout=5000")
         return connection
 
     def initialize(self, allow_upgrade=True):
+        if self.read_only:
+            raise RuntimeError("read-only databases cannot be initialized or migrated")
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
