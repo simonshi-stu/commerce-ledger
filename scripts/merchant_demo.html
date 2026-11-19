@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>眼镜商家 · 库存预留演练</title>
+<style>
+:root{color-scheme:light;font:16px/1.55 system-ui,sans-serif;color:#163247;background:#f3f7fa}
+main{max-width:58rem;margin:2rem auto;padding:0 1rem}h1{margin-bottom:.25rem}p{margin:.35rem 0}
+fieldset,section{padding:1rem;border:1px solid #b9cbd7;border-radius:.6rem;background:#fff;margin-bottom:1rem}
+legend{font-weight:700}select,button{font:inherit;margin:.3rem;padding:.45rem .75rem}
+button{background:#15597a;color:#fff;border:none;border-radius:.4rem;cursor:pointer}button:disabled{opacity:.55}
+table{width:100%;border-collapse:collapse;margin:.75rem 0}th,td{padding:.4rem .55rem;border-bottom:1px solid #dce5ea;text-align:left}
+.chosen{background:#e1f3ff}.good{color:#12613f}h2{font-size:1.15rem;margin:0}
+</style>
+<main>
+<h1>眼镜商家 · 库存预留演练</h1>
+<p>三个合成款式。每次演练从独立、临时 SQLite 库出发，不接收真实付款。</p>
+<p>已成单仅统计已付款、尚未出库的订单数量。</p>
+<fieldset><legend>选择一个款式和路径</legend>
+<label for="sku">商品款式</label><select id="sku">
+<option value="DEMO-BLK">黑色无框 · 初始 20 件</option>
+<option value="DEMO-PNK">粉色大框 · 初始 12 件</option>
+<option value="DEMO-CLR">透明轻框 · 初始 8 件</option>
+</select><button id="paid" type="button">演练按时付款</button><button id="late" type="button">演练超时后付款</button>
+</fieldset>
+<p id="status" role="status">选择任一路径，查看每一步的库存和对账。</p><div id="results"></div>
+</main>
+<script>
+const sku = document.querySelector("#sku");
+const status = document.querySelector("#status");
+const results = document.querySelector("#results");
+const buttons = ["paid","late"].map(id => document.getElementById(id));
+function add(parent, tag, text) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    parent.append(node);
+    return node;
+}
+function render(data) {
+    for (const step of data.steps) {
+        const section = add(results,"section");
+        add(section,"h2",step.label);
+        add(section,"p",step.event);
+        const table = add(section,"table");
+        const headings = add(add(table,"thead"),"tr");
+        ["商品","可售","已预留","已成单"].forEach(x => add(headings,"th",x));
+        const body = add(table,"tbody");
+        for (const row of step.stock) {
+            const tr = add(body,"tr");
+            if (row.sku === data.sku) tr.className = "chosen";
+            [row.name,row.available,row.held,row.placed].forEach(x => add(tr,"td",x));
+        }
+        const check = add(section,"p",step.ledger_healthy ? "库存与流水一致" : "发现对账差异，请核查");
+        if (step.ledger_healthy) check.className = "good";
+    }
+    status.textContent = (data.outcome === "PAID" ? "付款成单" : "迟到付款未成单")
+        + (data.replay_matches ? "；重复事件回执一致。" : "；重复回执不一致。");
+}
+async function run(path){
+    buttons.forEach(b => b.disabled = true);
+    status.textContent = "正在运行合成演练…";
+    results.replaceChildren();
+    try {
+        const response = await fetch("/scenario",{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({sku:sku.value,path})});
+        if (!response.ok) throw new Error();
+        render(await response.json());
+    } catch { status.textContent = "演练未完成，请确认本地演示服务正在运行。"; }
+    finally { buttons.forEach(b => b.disabled = false); }
+}
+buttons.forEach(b => b.addEventListener("click", () => run(b.id)));
+</script></html>
