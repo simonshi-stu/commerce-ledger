@@ -123,7 +123,7 @@ $env:COMMERCE_API_KEY = "local-learning-key-change-me"
 
 本仓库提供教学源码与合成测试；没有部署、付费服务或修改原四项目。SQLite 的正确性演示不能表述为 MySQL/PostgreSQL 性能或生产并发能力。
 
-数据库版本 1 由 app/schema.sql 创建，版本 2 在 app/migrations/002_history_guards.sql 增加历史保护触发器。已有旧库必须先停止服务并执行 python -m app.migrate --apply，命令会备份后升级；未知更高版本拒绝启动。详见第 11 章。
+数据库版本 1 由 app/schema.sql 创建，版本 2 在 app/migrations/002_history_guards.sql 增加历史保护触发器，版本 3 新增限时库存预留和模拟付款凭据。已有旧库必须先停止服务并执行 python -m app.migrate --apply，命令会备份后升级；未知更高版本拒绝启动。详见第 11 章。
 
 ## 独立验证真实 HTTP
 
@@ -151,3 +151,7 @@ COMMERCE_API_KEY 为必填管理凭据；可选 COMMERCE_READ_API_KEY 只能读�
 ## 可验证备份与恢复演练（第二阶段 / DB v2）
 
 运行 `python -m scripts.recovery_demo`，在临时合成库完成备份、原库继续变化、恢复到新文件、幂等重试和拒绝覆盖演练。手动操作使用 `python -m app.recovery backup|verify|restore`；参数、失败排查与面试讲解见 [第 13 章](docs/13-backup-and-recovery.md)。备份通过结构、外键和业务核对后才发布；没有生产灾备、PostgreSQL 或 Docker 实测。
+
+## 实验：限时库存预留与模拟付款
+
+在原有直接下单 API 之外，新增单品限时预留、模拟付款、批量超时释放和对账验证。现有 SQLite 文件需先备份升级到 v3；不是支付网关集成。接口与云端验证见 [阶段说明](docs/13-reservation-stage.md)。

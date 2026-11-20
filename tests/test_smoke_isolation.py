@@ -17,4 +17,5 @@ def test_http_smoke_ignores_external_database_url(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert "HTTP smoke passed:" in result.stdout
     assert "integer bounds" in result.stdout
+    assert "reservation payment and expiry walkthrough" in result.stdout
     assert not inherited_path.exists()

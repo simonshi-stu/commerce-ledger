@@ -20,7 +20,7 @@ def main():
         order = service.place_order(db, OrderCreate(request_key="legacy-demo-order", items=[
             {"product_id": product["id"], "quantity": 2}]))
         result = migrate_database(db.path)
-        assert result["from_version"] == 1 and result["to_version"] == 2
+        assert result["from_version"] == 1 and result["to_version"] == 3
         assert inspect_version(result["backup"]) == 1
         with db.connection() as conn:
             assert service.order_detail(conn, order["id"]) == order
@@ -34,7 +34,7 @@ def main():
             else:
                 raise AssertionError("terminal order guard missing")
         assert not migrate_database(db.path)["changed"]
-        print("Migration demo passed: v1 -> v2; backup readable; order/stock preserved; terminal guard enforced; repeat safe")
+        print("Migration demo passed: v1 -> v3; backup readable; order/stock preserved; terminal guard enforced; repeat safe")
 
 
 if __name__ == "__main__":

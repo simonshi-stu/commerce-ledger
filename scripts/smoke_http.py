@@ -10,6 +10,35 @@ import time
 import httpx
 
 
+def verify_reservation_walkthrough(client, product_id):
+    created = client.post(f"/products/{product_id}/stock-adjustments", json={
+        "request_key": "smoke-reservation-stock", "delta": 2, "reason": "synthetic smoke"
+    })
+    assert created.status_code == 201, created.text
+    outcomes = []
+    for label, ttl in (("paid", 30), ("expired", 1)):
+        response = client.post("/reservations", json={"request_key": f"smoke-hold-{label}",
+                               "product_id": product_id, "quantity": 1, "ttl_seconds": ttl})
+        assert response.status_code == 201, response.text
+        held = response.json()
+        assert held["state"] == "HELD"
+        if label == "expired":
+            time.sleep(max(0, held["expires_at"] - time.time()) + 0.05)
+            assert client.post("/reservations/expire").json() == {"released": 1}
+        path = f"/reservations/{held['id']}/simulated-payment"
+        event = {"event_id": f"smoke-payment-{label}", "amount_cents": 100}
+        payment = client.post(path, json=event)
+        assert payment.status_code == 200, payment.text
+        receipt = payment.json()
+        assert client.post(path, json=event).json() == receipt
+        outcomes.append(receipt["outcome"])
+    assert outcomes == ["PAID", "LATE_PAYMENT"]
+    assert len(client.get("/orders").json()) == 1
+    assert client.get(f"/products/{product_id}").json()["available"] == 1
+    audit = client.get("/integrity").json()
+    assert audit["healthy"] and audit["ledger_mismatch_count"] == 0
+
+
 def main():
     root = Path(__file__).resolve().parent.parent
     with TemporaryDirectory(prefix="commerce-http-") as folder:
@@ -64,7 +93,8 @@ def main():
                 assert client.get("/products", headers=reader).status_code == 200
                 assert client.post("/products", headers=reader, json={
                     "sku": "BLOCKED", "name": "blocked", "price_cents": 100}).status_code == 403
-                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, integer bounds, authentication, reconciliation, reader restrictions, request IDs")
+                verify_reservation_walkthrough(client, created.json()["id"])
+                print("HTTP smoke passed: health, docs, OpenAPI, CRUD, integer bounds, authentication, reconciliation, reader restrictions, request IDs, reservation payment and expiry walkthrough")
         finally:
             process.terminate()
             try:

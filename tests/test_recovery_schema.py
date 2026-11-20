@@ -1,4 +1,4 @@
-"""A v2 marker and balanced rows do not prove recovery preserves future guards."""
+"""A valid version marker and balanced rows do not prove recovery preserves future guards."""
 import json
 import sqlite3
 
@@ -73,7 +73,7 @@ def test_empty_balanced_database_with_weakened_table_constraints_is_rejected(tmp
         for _, migration in MIGRATIONS:
             source = migration.read_text(encoding="utf-8")
             connection.executescript(source.replace(old, new))
-        connection.execute("PRAGMA user_version=2")
+        connection.execute(f"PRAGMA user_version={MIGRATIONS[-1][0]}")
     assert_refused_without_changes(db, tmp_path)
 
 
@@ -117,7 +117,7 @@ def test_valid_analyzed_database_and_restored_guard_continue_to_work(database, t
             connection.execute("DELETE FROM stock_movements")
 
 
-def test_real_v1_to_v2_migration_matches_reference_contract(tmp_path):
+def test_real_v1_to_current_version_migration_matches_reference_contract(tmp_path):
     db = Database(tmp_path / "migrated.db")
     with db.connection() as connection:
         connection.executescript(MIGRATIONS[0][1].read_text(encoding="utf-8"))

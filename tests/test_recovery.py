@@ -110,7 +110,7 @@ def test_bad_business_or_foreign_key_data_is_not_published(populated, tmp_path, 
     assert list(tmp_path.glob(".commerce-snapshot-*")) == []
 
 
-@pytest.mark.parametrize("version", [0, 1, 3])
+@pytest.mark.parametrize("version", [0, 1, 2, 4])
 def test_unsupported_version_is_never_migrated(populated, tmp_path, version):
     db, _, _, _ = populated
     with db.connection() as c:

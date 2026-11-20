@@ -145,8 +145,9 @@ def check_integrity(db, limit):
         HAVING COUNT(i.product_id)=0 OR o.total_cents<>COALESCE(SUM(CAST(i.quantity AS BIGINT)*i.unit_price_cents),0)
     """
     # Balance agreement alone cannot prove that a movement belongs to the
-    # correct order. Each line has one SALE, and only cancelled lines have a
-    # CANCEL. Also detect orphan/extra movements, including balanced bad imports.
+    # matching order or stock reservation. Every held or settled item consumes
+    # available stock once; only expired holds and cancelled orders return it.
+    # Also detect orphan/extra movements, including balanced bad imports.
     # All three reconciliations run inside the same read-only snapshot below.
     ledger_query = """
         WITH expected AS (
@@ -158,6 +159,12 @@ def check_integrity(db, limit):
                    CAST(i.quantity AS BIGINT) AS expected_delta
             FROM order_items i JOIN orders o ON o.id=i.order_id
             WHERE o.status='CANCELLED'
+            UNION ALL
+            SELECT h.id,h.product_id,'SALE',-CAST(h.quantity AS BIGINT)
+            FROM stock_reservations h WHERE h.state IN ('HELD','EXPIRED')
+            UNION ALL
+            SELECT h.id,h.product_id,'CANCEL',CAST(h.quantity AS BIGINT)
+            FROM stock_reservations h WHERE h.state='EXPIRED'
         )
         SELECT e.order_id,e.product_id,e.kind,e.expected_delta,
                m.delta AS actual_delta
